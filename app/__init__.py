@@ -1,3 +1,1 @@
-"""Offline ASAI prototype package."""
-
-__all__ = ["main"]
+"""Offline, paper-only ASAI vertical slice."""
