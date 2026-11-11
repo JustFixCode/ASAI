@@ -1,12 +1,6 @@
-"""Offline ASAI paper-control preflight diagnostics; never order authorization."""
-from .preflight import (
-    CanonicalCommand,
-    ControlPolicy,
-    MarketMark,
-    PreflightDiagnostic,
-    preflight,
-)
+"""Offline ASAI control diagnostics and fail-closed paper decision boundary."""
+from .preflight import CanonicalCommand, ControlPolicy, MarketMark, PreflightDiagnostic, preflight
+from .paper_order_boundary import BoundPaperDecision, PaperOrderBoundary
 
-__all__ = (
-    "CanonicalCommand", "ControlPolicy", "MarketMark", "PreflightDiagnostic", "preflight",
-)
+__all__ = ["BoundPaperDecision", "CanonicalCommand", "ControlPolicy", "MarketMark",
+           "PaperOrderBoundary", "PreflightDiagnostic", "preflight"]
