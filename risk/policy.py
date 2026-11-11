@@ -1,20 +1,20 @@
 """Independent, deterministic, long-only risk policy gate.
 
-This module is deliberately side-effect free.  It neither submits nor queues
+This module is deliberately side-effect free. It neither submits nor queues
 orders, obtains prices, reads the system clock, changes state, imports AI code,
-or modifies its limits.  An adapter must pass verified snapshots and an
+or modifies its limits. An adapter must pass verified snapshots and an
 explicit ``now`` and must independently execute only approved decisions.
 
-All monetary and quantity inputs are ``Decimal``.  Floats, ints, strings,
-booleans, non-finite decimals, missing fields, stale/future timestamps, and
-unsafe state are rejected.  The API is intentionally data-only so it can be
-run in a separate process from any execution adapter.
+All financial inputs are finite, bounded ``Decimal`` values. Arithmetic runs in
+an explicit local Decimal context with traps, so a hostile ambient context or an
+unrepresentable intermediate result fails closed rather than changing a result.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from decimal import Decimal
+from decimal import (Decimal, DecimalException, DivisionByZero, Inexact,
+                     InvalidOperation, Overflow, Rounded, localcontext)
 from typing import Final
 
 BUY: Final[str] = "BUY"
@@ -23,16 +23,22 @@ HOLD: Final[str] = "HOLD"
 _ACTIONS: Final[frozenset[str]] = frozenset((BUY, SELL, HOLD))
 _ZERO: Final[Decimal] = Decimal("0")
 _ONE: Final[Decimal] = Decimal("1")
+# Financial values may have at most 28 significant digits and an adjusted
+# exponent in [-18, 18]. This permits sub-unit precision through 1e-18 and
+# amounts below 1e19 while making all policy arithmetic bounded and auditable.
+_MAX_DIGITS: Final[int] = 28
+_MIN_ADJUSTED: Final[int] = -18
+_MAX_ADJUSTED: Final[int] = 18
+_CONTEXT_PRECISION: Final[int] = 56
 
 
 @dataclass(frozen=True, slots=True)
 class RiskLimits:
-    """Immutable limits; all financial values must be finite non-negative Decimal.
+    """Immutable limits; all financial values must be bounded non-negative Decimal.
 
     ``max_leverage`` is deliberately capped at one: this policy never permits
     borrowing or leverage. ``max_cash`` is a hard post-trade balance cap.
     """
-
     max_data_age: timedelta
     max_order_notional: Decimal
     max_cash: Decimal
@@ -43,13 +49,6 @@ class RiskLimits:
 
 @dataclass(frozen=True, slots=True)
 class Position:
-    """A reconciled long-only position with a trusted current market mark.
-
-    ``mark_price`` is supplied by the reconciliation boundary, not by an order
-    request. ``AccountState.as_of`` is the timestamp of this marked snapshot;
-    callers must not reuse a position mark after that snapshot becomes stale.
-    """
-
     instrument: str
     quantity: Decimal
     mark_price: Decimal
@@ -57,8 +56,6 @@ class Position:
 
 @dataclass(frozen=True, slots=True)
 class AccountState:
-    """Verified snapshot supplied by a reconciliation boundary."""
-
     as_of: datetime
     cash: Decimal
     equity: Decimal
@@ -70,8 +67,13 @@ class AccountState:
 
 @dataclass(frozen=True, slots=True)
 class OrderRequest:
-    """A requested non-live policy evaluation; no execution capability exists."""
+    """A requested non-live policy evaluation; no execution capability exists.
 
+    A SELL ``price`` is a limit's minimum execution price, not a maximum. This
+    policy therefore rejects SELLs: without an independently enforced maximum
+    proceeds/execution-price bound it cannot prove max-cash or max-notional
+    controls for every permitted fill.
+    """
     action: str
     instrument: str
     quantity: Decimal
@@ -83,8 +85,6 @@ class OrderRequest:
 
 @dataclass(frozen=True, slots=True)
 class RiskDecision:
-    """Immutable audit result, never an order or execution instruction."""
-
     approved: bool
     action: str
     code: str
@@ -101,16 +101,33 @@ def _decision(action: object, code: str, message: str, *, approved: bool = False
     return RiskDecision(approved, safe_action, code, message, cash, exposure, equity)
 
 
-def _finite_decimal(value: object) -> bool:
-    return isinstance(value, Decimal) and value.is_finite()
+def _bounded_decimal(value: object) -> bool:
+    if not isinstance(value, Decimal) or not value.is_finite():
+        return False
+    if value.is_zero():
+        return True
+    digits = len(value.as_tuple().digits)
+    return digits <= _MAX_DIGITS and _MIN_ADJUSTED <= value.adjusted() <= _MAX_ADJUSTED
 
 
 def _nonnegative_decimal(value: object) -> bool:
-    return _finite_decimal(value) and value >= _ZERO
+    return _bounded_decimal(value) and value >= _ZERO
 
 
 def _aware_time(value: object) -> bool:
     return isinstance(value, datetime) and value.tzinfo is not None and value.utcoffset() is not None
+
+
+def _exact(operation):
+    """Evaluate bounded Decimal arithmetic independently of ambient context."""
+    with localcontext() as context:
+        context.prec = _CONTEXT_PRECISION
+        context.Emin = _MIN_ADJUSTED
+        context.Emax = _MAX_ADJUSTED
+        context.clamp = 0
+        for signal in (InvalidOperation, DivisionByZero, Overflow, Inexact, Rounded):
+            context.traps[signal] = True
+        return operation()
 
 
 def _valid_limits(limits: object) -> bool:
@@ -127,58 +144,48 @@ def _valid_state(state: object) -> bool:
     if not isinstance(state, AccountState) or not isinstance(state.position, Position):
         return False
     position = state.position
-    return (
-        _aware_time(state.as_of)
-        and _nonnegative_decimal(state.cash)
-        and _finite_decimal(state.equity) and state.equity > _ZERO
+    if not (
+        _aware_time(state.as_of) and _nonnegative_decimal(state.cash)
+        and _bounded_decimal(state.equity) and state.equity > _ZERO
         and isinstance(position.instrument, str) and bool(position.instrument)
         and _nonnegative_decimal(position.quantity)
-        # Every evaluation, including a new BUY from a flat position, requires
-        # a usable independent market mark for post-trade valuation.
-        and _finite_decimal(position.mark_price) and position.mark_price > _ZERO
-        and state.reconciled is True
-        and isinstance(state.trading_enabled, bool)
+        and _bounded_decimal(position.mark_price) and position.mark_price > _ZERO
+        and state.reconciled is True and isinstance(state.trading_enabled, bool)
         and state.kill_switch_engaged is False
-        and state.equity == state.cash + (position.quantity * position.mark_price)
-    )
+    ):
+        return False
+    try:
+        return state.equity == _exact(lambda: state.cash + position.quantity * position.mark_price)
+    except DecimalException:
+        return False
 
 
 def _valid_request(request: object) -> bool:
     if not isinstance(request, OrderRequest):
         return False
-    # Validate the types before frozenset membership: malformed containers are
-    # unhashable, and a policy boundary must deny them rather than raise.
     if not all(isinstance(value, str) for value in (
         request.action, request.local_recommendation, request.remote_recommendation,
     )):
         return False
     return (
-        request.action in _ACTIONS
-        and isinstance(request.instrument, str) and bool(request.instrument)
-        and _nonnegative_decimal(request.quantity)
-        and _nonnegative_decimal(request.price)
-        and request.local_recommendation in _ACTIONS
-        and request.remote_recommendation in _ACTIONS
+        request.action in _ACTIONS and isinstance(request.instrument, str) and bool(request.instrument)
+        and _nonnegative_decimal(request.quantity) and _nonnegative_decimal(request.price)
+        and request.local_recommendation in _ACTIONS and request.remote_recommendation in _ACTIONS
         and type(request.emergency_risk_reduction) is bool
     )
 
 
 def evaluate(limits: RiskLimits, state: AccountState, request: OrderRequest, *, now: datetime) -> RiskDecision:
-    """Evaluate one action without side effects, failing closed on every unsafe input.
-
-    Approval means only that this immutable snapshot passes this policy. It is
-    not authorisation to trade. Callers must reject a decision if any input has
-    changed, and a separately reviewed adapter must enforce execution controls.
-    """
+    """Evaluate one action without side effects, failing closed on unsafe input."""
     action = request.action if isinstance(request, OrderRequest) else "REJECTED"
     if not _valid_limits(limits):
-        return _decision(action, "INVALID_LIMITS", "Risk limits are malformed or would permit leverage.")
+        return _decision(action, "INVALID_LIMITS", "Risk limits are malformed or outside numeric bounds.")
     if not _aware_time(now):
         return _decision(action, "INVALID_TIME", "Evaluation time must be timezone-aware.")
     if not _valid_state(state):
-        return _decision(action, "UNSAFE_STATE", "State is malformed, unreconciled, killed, or nonpositive in equity.")
+        return _decision(action, "UNSAFE_STATE", "State is malformed, unreconciled, killed, or numerically unsafe.")
     if not _valid_request(request):
-        return _decision(action, "INVALID_REQUEST", "Request is malformed; Decimal values and explicit actions are required.")
+        return _decision(action, "INVALID_REQUEST", "Request is malformed or outside numeric bounds.")
 
     age = now - state.as_of
     if age < timedelta(0) or age > limits.max_data_age:
@@ -190,59 +197,53 @@ def evaluate(limits: RiskLimits, state: AccountState, request: OrderRequest, *, 
     if request.action != request.local_recommendation:
         return _decision(action, "RECOMMENDATION_MISMATCH", "Request action is not the unanimous recommendation.")
 
-    # A HOLD needs neither execution nor a risk-reduction override.
-    if request.action == HOLD:
-        if request.quantity != _ZERO or request.price != _ZERO or request.emergency_risk_reduction:
-            return _decision(action, "INVALID_HOLD", "HOLD requires zero quantity/price and no emergency flag.")
-        return _decision(action, "HOLD", "No exposure-changing action requested.", approved=True,
-                         cash=state.cash, exposure=state.position.quantity * state.position.mark_price,
-                         equity=state.equity)
+    try:
+        current_exposure = _exact(lambda: state.position.quantity * state.position.mark_price)
+        if request.action == HOLD:
+            if request.quantity != _ZERO or request.price != _ZERO or request.emergency_risk_reduction:
+                return _decision(action, "INVALID_HOLD", "HOLD requires zero quantity/price and no emergency flag.")
+            return _decision(action, "HOLD", "No exposure-changing action requested.", approved=True,
+                             cash=state.cash, exposure=current_exposure, equity=state.equity)
 
-    if request.quantity <= _ZERO or request.price <= _ZERO:
-        return _decision(action, "NONPOSITIVE_ORDER", "BUY and SELL require positive Decimal quantity and price.")
-    notional = request.quantity * request.price
-    if not _finite_decimal(notional) or notional <= _ZERO or notional > limits.max_order_notional:
-        return _decision(action, "NOTIONAL_LIMIT", "Order notional is invalid or exceeds its hard cap.")
+        if request.quantity <= _ZERO or request.price <= _ZERO:
+            return _decision(action, "NONPOSITIVE_ORDER", "BUY and SELL require positive Decimal quantity and price.")
+        notional = _exact(lambda: request.quantity * request.price)
+        if not _bounded_decimal(notional) or notional <= _ZERO or notional > limits.max_order_notional:
+            return _decision(action, "NOTIONAL_LIMIT", "Order notional is invalid or exceeds its hard cap.")
+        if not _bounded_decimal(current_exposure):
+            return _decision(action, "UNSAFE_STATE", "Current marked exposure is outside numeric bounds.")
 
-    current_exposure = state.position.quantity * state.position.mark_price
-    if not _finite_decimal(current_exposure):
-        return _decision(action, "UNSAFE_STATE", "Current marked exposure is not finite.")
+        if state.trading_enabled is not True:
+            return _decision(action, "TRADING_DISABLED", "Trading switch is off; no orders are permitted.")
+        if request.emergency_risk_reduction and request.action != SELL:
+            return _decision(action, "EMERGENCY_MUST_REDUCE_RISK", "Emergency handling may only sell an existing long position.")
+        if request.action == SELL:
+            if request.quantity > state.position.quantity:
+                return _decision(action, "SHORTING_PROHIBITED", "SELL quantity exceeds the known long position.")
+            return _decision(action, "SELL_PRICE_UNBOUNDED", "A sell limit is a minimum price and cannot bound maximum proceeds.")
 
-    # The trading switch is an absolute execution control.  The legacy
-    # emergency flag remains in the request schema for audit compatibility,
-    # but is never an override: disabled trading rejects every BUY or SELL.
-    if state.trading_enabled is not True:
-        return _decision(action, "TRADING_DISABLED", "Trading switch is off; no orders are permitted.")
-    if request.emergency_risk_reduction and request.action != SELL:
-        return _decision(action, "EMERGENCY_MUST_REDUCE_RISK", "Emergency handling may only sell an existing long position.")
-
-    if request.action == BUY:
-        projected_cash = state.cash - notional
-        projected_quantity = state.position.quantity + request.quantity
-    else:
-        if request.quantity > state.position.quantity:
-            return _decision(action, "SHORTING_PROHIBITED", "SELL quantity exceeds the known long position.")
-        projected_cash = state.cash + notional
-        projected_quantity = state.position.quantity - request.quantity
-
-    # Value both the existing and projected position at the independently
-    # reconciled market mark.  The request's limit price affects cash and
-    # order-notional controls only; it must never determine exposure.
-    projected_exposure = projected_quantity * state.position.mark_price
-    projected_equity = projected_cash + projected_exposure
-    if not all(_finite_decimal(value) for value in (projected_cash, projected_exposure, projected_equity)):
-        return _decision(action, "INVALID_PROJECTION", "Projected balances are not finite.")
-    if projected_cash < limits.min_cash_reserve or projected_cash < _ZERO:
-        return _decision(action, "NO_BORROWING", "Projected cash breaches reserve or would borrow.")
-    if projected_cash > limits.max_cash:
-        return _decision(action, "MAX_CASH_LIMIT", "Projected cash exceeds the hard cash cap.")
-    if projected_exposure > limits.max_projected_exposure:
-        return _decision(action, "EXPOSURE_LIMIT", "Projected marked exposure exceeds the hard cap.")
-    if projected_equity <= _ZERO:
-        return _decision(action, "NONPOSITIVE_EQUITY", "Projected equity must remain positive.")
-    leverage = projected_exposure / projected_equity
-    if leverage > limits.max_leverage:
-        return _decision(action, "LEVERAGE_PROHIBITED", "Projected leverage exceeds the no-leverage policy.")
+        projected_cash = _exact(lambda: state.cash - notional)
+        projected_quantity = _exact(lambda: state.position.quantity + request.quantity)
+        projected_exposure = _exact(lambda: projected_quantity * state.position.mark_price)
+        projected_equity = _exact(lambda: projected_cash + projected_exposure)
+        if not all(_bounded_decimal(value) for value in (projected_cash, projected_quantity,
+                                                           projected_exposure, projected_equity)):
+            return _decision(action, "INVALID_PROJECTION", "Projected balances are outside numeric bounds.")
+        if projected_cash < limits.min_cash_reserve or projected_cash < _ZERO:
+            return _decision(action, "NO_BORROWING", "Projected cash breaches reserve or would borrow.")
+        if projected_cash > limits.max_cash:
+            return _decision(action, "MAX_CASH_LIMIT", "Projected cash exceeds the hard cash cap.")
+        if projected_exposure > limits.max_projected_exposure:
+            return _decision(action, "EXPOSURE_LIMIT", "Projected marked exposure exceeds the hard cap.")
+        if projected_equity <= _ZERO:
+            return _decision(action, "NONPOSITIVE_EQUITY", "Projected equity must remain positive.")
+        # Cross-multiply instead of dividing: it is an exact comparison and
+        # cannot turn a recurring Decimal ratio into an ambient-context result.
+        maximum_exposure = _exact(lambda: limits.max_leverage * projected_equity)
+        if not _bounded_decimal(maximum_exposure) or projected_exposure > maximum_exposure:
+            return _decision(action, "LEVERAGE_PROHIBITED", "Projected leverage exceeds the no-leverage policy.")
+    except DecimalException:
+        return _decision(action, "NUMERIC_SAFETY", "Decimal arithmetic was inexact, rounded, or out of range.")
 
     return _decision(action, "APPROVED", "Action passes deterministic long-only risk policy.", approved=True,
                      cash=projected_cash, exposure=projected_exposure, equity=projected_equity)
