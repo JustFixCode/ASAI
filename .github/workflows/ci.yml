@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# The workflow only needs to read the checked-out source. It uses no secrets.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python and PostgreSQL invariants
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+
+    steps:
+      - name: Check out source
+        # actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Python
+        # actions/setup-python@v5.1.0
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d
+        with:
+          python-version: "3.12"
+          check-latest: false
+
+      - name: Run Python unit tests
+        run: python -m unittest discover -s tests -v
+
+      - name: Apply PostgreSQL foundation migration
+        run: psql -X -v ON_ERROR_STOP=1 -f db/001_foundation.sql
+
+      - name: Run PostgreSQL invariant checks
+        run: psql -X -v ON_ERROR_STOP=1 -f db/test_invariants.sql
