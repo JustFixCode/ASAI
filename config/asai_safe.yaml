@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "market_data": {
+    "provider": "unconfigured",
+    "retrieval_enabled": false,
+    "live_data_enabled": false,
+    "network_enabled": false
+  },
+  "broker": {
+    "provider": "alpaca",
+    "mode": "paper",
+    "live_trading_enabled": false,
+    "execution_enabled": false,
+    "submission_enabled": false
+  },
+  "memory": {
+    "purpose": "configuration_audit_history",
+    "store": "local_jsonl",
+    "autonomous_updates_enabled": false,
+    "human_review_required": true
+  }
+}
