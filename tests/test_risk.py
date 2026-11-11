@@ -78,6 +78,17 @@ class RiskPolicyTests(unittest.TestCase):
                 self.rejected(evaluate(LIMITS, state(), request(quantity=value), now=NOW), "INVALID_REQUEST")
                 self.rejected(evaluate(LIMITS, state(cash=value, equity=D("1200")), request(), now=NOW), "UNSAFE_STATE")
 
+    def test_unhashable_action_and_recommendation_fields_fail_closed(self):
+        cases = (
+            ("action", []),
+            ("local_recommendation", {"BUY": True}),
+            ("remote_recommendation", []),
+        )
+        for field, value in cases:
+            with self.subTest(field=field, value=repr(value)):
+                self.rejected(evaluate(LIMITS, state(), request(**{field: value}), now=NOW),
+                              "INVALID_REQUEST")
+
     def test_missing_wrong_type_and_invalid_limit_inputs_fail_closed(self):
         self.rejected(evaluate(LIMITS, state(), {"action": BUY}, now=NOW), "INVALID_REQUEST")
         self.rejected(evaluate("limits", state(), request(), now=NOW), "INVALID_LIMITS")
