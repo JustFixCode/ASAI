@@ -58,3 +58,9 @@ jobs:
 
       - name: Run PostgreSQL invariant checks
         run: psql -X -v ON_ERROR_STOP=1 -f db/test_invariants.sql
+
+      - name: Apply paper-order migration
+        run: psql -X -v ON_ERROR_STOP=1 -f db/002_paper_orders.sql
+
+      - name: Run paper-order checks
+        run: psql -X -v ON_ERROR_STOP=1 -f db/test_paper_orders.sql
