@@ -34,8 +34,8 @@ BEGIN
         'invariant-test-funding-001',
         'Invariant test funding',
         '[
-          {"amount":100.00000000,"side":"DEBIT","currency":"USD","account_code":"Asset:Cash"},
-          {"side":"CREDIT","account_code":"Equity:Capital","amount":100,"currency":"USD"}
+          {"amount":"100.00000000","side":"DEBIT","currency":"USD","account_code":"Asset:Cash"},
+          {"side":"CREDIT","account_code":"Equity:Capital","amount":"100.00000000","currency":"USD"}
         ]'::jsonb,
         'FUNDING'
     );
@@ -129,8 +129,8 @@ BEGIN
         'invariant-test-funding-001',
         'Invariant test funding',
         '[
-          {"account_code":"Asset:Cash", "currency":"USD", "side":"DEBIT", "amount":"100"},
-          {"account_code":"Equity:Capital", "currency":"USD", "side":"CREDIT", "amount":"100"}
+          {"account_code":"Asset:Cash", "currency":"USD", "side":"DEBIT", "amount":"100.00000000"},
+          {"account_code":"Equity:Capital", "currency":"USD", "side":"CREDIT", "amount":"100.00000000"}
         ]'::jsonb,
         'FUNDING'
     ) <> v_entry_id THEN
