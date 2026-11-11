@@ -1,7 +1,7 @@
 """Adversarial coverage for the standalone deterministic risk policy."""
 from dataclasses import FrozenInstanceError
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN, localcontext
 from pathlib import Path
 import unittest
 
@@ -130,10 +130,11 @@ class RiskPolicyTests(unittest.TestCase):
         sell = request(action=SELL, quantity=D("3"), price=D("100"),
                        local_recommendation=SELL, remote_recommendation=SELL)
         self.rejected(evaluate(LIMITS, state(), sell, now=NOW), "SHORTING_PROHIBITED")
-        cap = RiskLimits(timedelta(seconds=60), D("500"), D("1050"), D("1500"), D("0"))
-        self.rejected(evaluate(cap, state(), request(action=SELL, quantity=D("1"), price=D("100"),
-                                                      local_recommendation=SELL, remote_recommendation=SELL), now=NOW),
-                      "MAX_CASH_LIMIT")
+        # A valid SELL is also denied: its limit is a minimum execution price,
+        # so it cannot prove a maximum cash/notional outcome.
+        self.rejected(evaluate(LIMITS, state(), request(action=SELL, quantity=D("1"), price=D("100"),
+                                                         local_recommendation=SELL, remote_recommendation=SELL), now=NOW),
+                      "SELL_PRICE_UNBOUNDED")
 
     def test_disabled_switch_rejects_every_order_including_emergency_reduction(self):
         disabled = state(trading_enabled=False)
@@ -162,15 +163,11 @@ class RiskPolicyTests(unittest.TestCase):
         self.rejected(evaluate(tight_exposure, state(), request(price=D("1")), now=NOW),
                       "EXPOSURE_LIMIT")
 
-        # A high sell limit changes cash, but the unsold position remains
-        # marked at the independently reconciled value, not the order limit.
+        # A high sell limit is still only a price floor, not a ceiling on
+        # proceeds; it cannot safely support max-cash/notional controls.
         sell = request(action=SELL, quantity=D("1"), price=D("500"),
                        local_recommendation=SELL, remote_recommendation=SELL)
-        decision = evaluate(LIMITS, state(), sell, now=NOW)
-        self.assertTrue(decision.approved)
-        self.assertEqual(D("1500"), decision.projected_cash)
-        self.assertEqual(D("100"), decision.projected_exposure)
-        self.assertEqual(D("1600"), decision.projected_equity)
+        self.rejected(evaluate(LIMITS, state(), sell, now=NOW), "SELL_PRICE_UNBOUNDED")
 
     def test_missing_or_stale_market_mark_cannot_approve_orders(self):
         # A zero mark is missing/unusable even if equity is internally coherent.
@@ -187,6 +184,19 @@ class RiskPolicyTests(unittest.TestCase):
                                  local_recommendation=SELL, remote_recommendation=SELL,
                                  emergency_risk_reduction=True)
         self.rejected(evaluate(LIMITS, killed, emergency_sell, now=NOW), "UNSAFE_STATE")
+
+    def test_hostile_decimal_context_and_extreme_values_fail_closed(self):
+        # At precision 2 this product would round down to 100 and could pass a
+        # naive ambient-context notional check. The fixed local context rejects it.
+        tight = RiskLimits(timedelta(seconds=60), D("100"), D("2000"), D("1500"), D("0"))
+        with localcontext() as context:
+            context.prec = 2
+            context.rounding = ROUND_DOWN
+            self.rejected(evaluate(tight, state(), request(quantity=D("1.111"), price=D("90.01")), now=NOW),
+                          "NOTIONAL_LIMIT")
+        self.rejected(evaluate(LIMITS, state(), request(price=D("1e999999")), now=NOW), "INVALID_REQUEST")
+        self.rejected(evaluate(LIMITS, state(cash=D("1e999999"), equity=D("1e999999")), request(), now=NOW),
+                      "UNSAFE_STATE")
 
     def test_records_are_frozen_and_evaluation_does_not_mutate_inputs(self):
         before_state, before_request = state(), request()
