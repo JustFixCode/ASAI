@@ -2,12 +2,21 @@
 
 The only permitted remote origin is ``https://paper-api.alpaca.markets``.  Live
 trading is rejected unconditionally, even if callers supply a different host.
-This is an integration primitive, not an autonomous-trading safety boundary.
-It intentionally has no retries for order submission: a timeout has unknown
-order state and must be resolved with ``get_order`` before any further action.
+This is a read-only evidence-lookup primitive, not an autonomous-trading
+safety boundary. Broker order submission and cancellation are unavailable in
+this build.
 
 Credentials are read only by :meth:`AlpacaPaperStocksClient.from_environment` at
 runtime. They are never included in exception messages, reprs, or logs.
+
+The private request helper is deliberately fail-closed: it can send only an
+exact ``GET`` to the small, fixed set of read paths used by this class's public
+lookup methods, and it rejects every payload before constructing a body or
+calling the transport. This is a defense-in-depth programming constraint, not
+a security authority or isolation boundary: Python callers can still inspect
+or mutate private attributes, invoke a supplied transport directly, or use raw
+credentials with another client. Credential permissions and the broker account
+remain the authoritative controls.
 """
 from __future__ import annotations
 
@@ -29,6 +38,10 @@ PAPER_STOCKS_ONLY_NOTICE = (
 )
 _CLIENT_ORDER_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,48}$")
 _SYMBOL_RE = re.compile(r"^[A-Z][A-Z0-9.]{0,14}$")
+_READ_ORDER_PATH_RE = re.compile(r"^/v2/orders/[A-Za-z0-9_-]{1,128}$")
+_READ_CLIENT_ORDER_PATH_RE = re.compile(
+    r"^/v2/orders:by_client_order_id\?client_order_id=[A-Za-z0-9_-]{1,48}$"
+)
 _ORDER_STATUSES = frozenset((
     "new", "accepted", "pending_new", "accepted_for_bidding", "partially_filled",
     "filled", "done_for_day", "canceled", "expired", "replaced", "pending_cancel",
@@ -50,17 +63,6 @@ class BrokerProtocolError(BrokerError):
 
 class BrokerRequestError(BrokerError):
     """The paper API rejected a request or the connection failed."""
-
-
-class BrokerTimeoutUnknownStatus(BrokerError):
-    """Submission timed out; the order may or may not have reached Alpaca."""
-
-    def __init__(self, client_order_id: str) -> None:
-        self.client_order_id = client_order_id
-        super().__init__(
-            "Paper order submission timed out; order status is unknown. "
-            "Use get_order_by_client_order_id before taking any further action."
-        )
 
 
 @dataclass(frozen=True)
@@ -179,9 +181,9 @@ def _urllib_transport(method: str, url: str, headers: Mapping[str, str], body: O
 class AlpacaPaperStocksClient:
     """Constrained client for documented Alpaca paper account/order endpoints.
 
-    ``allow_paper_submit`` defaults to False. It must be consciously enabled for
-    a manual, separately risk-gated paper workflow. No code path can use an
-    Alpaca live hostname or a non-HTTPS transport URL.
+    Broker order creation is unavailable in this build. No runtime flag, public
+    method, credentials, or injectable transport can enable it. Read-only paper
+    evidence lookups remain available; no code path can use a live hostname.
     """
 
     def __init__(
@@ -200,7 +202,6 @@ class AlpacaPaperStocksClient:
         self._api_key_id = api_key_id
         self._api_secret_key = api_secret_key
         self._timeout_seconds = float(timeout_seconds)
-        self._allow_paper_submit = bool(allow_paper_submit)
         self._transport = transport
 
     @classmethod
@@ -220,21 +221,15 @@ class AlpacaPaperStocksClient:
         return payload
 
     def submit_order(self, order: OrderRequest) -> dict[str, Any]:
-        """POST /v2/orders once; on timeout raises unknown-status exception.
+        """Always deny order creation before validation or transport.
 
-        This low-level primitive is not safe to invoke autonomously. Callers need
-        independent authorization, risk gating, audit, reconciliation and timeout
-        recovery before manually enabling paper submission.
+        No attribute, legacy constructor flag, or caller-supplied object can
+        enable POST. A future execution design requires a separate authoritative
+        transaction and adapter implementation.
         """
-        if not isinstance(order, OrderRequest):
-            raise BrokerConfigurationError("order must be an OrderRequest")
-        if not self._allow_paper_submit:
-            raise BrokerConfigurationError("paper submission is disabled; independent risk gating is required")
-        try:
-            response = self._request_json("POST", "/v2/orders", expected={200, 201}, payload=order.payload())
-        except TimeoutError as exc:
-            raise BrokerTimeoutUnknownStatus(order.resolved_client_order_id()) from exc
-        return _validated_order_response(response, expected_client_order_id=order.resolved_client_order_id())
+        raise BrokerConfigurationError(
+            "paper order submission is unavailable: authoritative execution is not implemented"
+        )
 
     def get_order(self, order_id: str) -> dict[str, Any]:
         """GET /v2/orders/{order_id}; validates a path-safe broker UUID/string."""
@@ -250,11 +245,32 @@ class AlpacaPaperStocksClient:
         return _validated_order_response(response, expected_client_order_id=client_order_id)
 
     def cancel_order(self, order_id: str) -> None:
-        """DELETE /v2/orders/{order_id}; a 204 result has no response body."""
-        self._request_json("DELETE", "/v2/orders/" + _path_id(order_id), expected={204}, allow_empty=True)
+        """Always deny cancellation before validation or transport.
+
+        Emergency cancellation is also unavailable through this adapter until a
+        controlled cancellation design exists; operators must use the broker
+        console as needed.
+        """
+        raise BrokerConfigurationError(
+            "paper order cancellation is unavailable; use the broker console as needed"
+        )
 
     def _request_json(self, method: str, path: str, *, expected: set[int], payload: Optional[dict[str, str]] = None, allow_empty: bool = False, response_types: tuple[type[Any], ...] = (dict,)) -> Any:
-        body = None if payload is None else json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        """Send one allowlisted, bodyless read request.
+
+        This guard must remain before serialization, headers, and transport so
+        direct calls cannot turn this credential-bearing helper into a write
+        primitive. It is intentionally not a Python security boundary; see the
+        module-level caveat about mutable internals, raw credentials, and a
+        caller-held transport.
+        """
+        if type(method) is not str or method != "GET":
+            raise BrokerConfigurationError("broker request method must be exact GET")
+        if not _is_allowed_read_path(path):
+            raise BrokerConfigurationError("broker request path is not an allowed read endpoint")
+        if payload is not None:
+            raise BrokerConfigurationError("broker read requests must not include a payload")
+        body = None
         headers = {"Accept": "application/json", "APCA-API-KEY-ID": self._api_key_id, "APCA-API-SECRET-KEY": self._api_secret_key}
         if body is not None:
             headers["Content-Type"] = "application/json"
@@ -287,6 +303,17 @@ def _path_id(value: str) -> str:
     return value
 
 
+def _is_allowed_read_path(path: object) -> bool:
+    """Return whether *path* is one of this client's fixed read endpoints."""
+    if not isinstance(path, str):
+        return False
+    return (
+        path in {"/v2/account", "/v2/positions"}
+        or _READ_ORDER_PATH_RE.fullmatch(path) is not None
+        or _READ_CLIENT_ORDER_PATH_RE.fullmatch(path) is not None
+    )
+
+
 def _validated_order_response(
     payload: Any, *, expected_order_id: Optional[str] = None,
     expected_client_order_id: Optional[str] = None,
@@ -313,6 +340,6 @@ def _validated_order_response(
 __all__ = [
     "ALPACA_PAPER_HOST", "ALPACA_PAPER_URL", "AlpacaPaperStocksClient",
     "BrokerConfigurationError", "BrokerError", "BrokerProtocolError",
-    "BrokerRequestError", "BrokerTimeoutUnknownStatus", "HttpResponse",
+    "BrokerRequestError", "HttpResponse",
     "OrderRequest", "PAPER_STOCKS_ONLY_NOTICE",
 ]
