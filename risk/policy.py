@@ -144,9 +144,16 @@ def _valid_state(state: object) -> bool:
 
 
 def _valid_request(request: object) -> bool:
+    if not isinstance(request, OrderRequest):
+        return False
+    # Validate the types before frozenset membership: malformed containers are
+    # unhashable, and a policy boundary must deny them rather than raise.
+    if not all(isinstance(value, str) for value in (
+        request.action, request.local_recommendation, request.remote_recommendation,
+    )):
+        return False
     return (
-        isinstance(request, OrderRequest)
-        and request.action in _ACTIONS
+        request.action in _ACTIONS
         and isinstance(request.instrument, str) and bool(request.instrument)
         and _nonnegative_decimal(request.quantity)
         and _nonnegative_decimal(request.price)
