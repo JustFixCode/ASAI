@@ -258,7 +258,11 @@ BEGIN
 
     INSERT INTO asai.journal_line(entry_id, line_no, account_code, currency, side, amount)
     SELECT v_entry_id, ord::integer, account_code, currency::char(3), side::asai.posting_side, amount
-    FROM jsonb_to_recordset(p_lines) WITH ORDINALITY AS x(account_code text, currency text, side text, amount numeric, ord);
+    FROM ROWS FROM (
+        jsonb_to_recordset(p_lines) AS (
+            account_code text, currency text, side text, amount numeric
+        )
+    ) WITH ORDINALITY AS x(account_code, currency, side, amount, ord);
 
     RETURN v_entry_id;
 END;
