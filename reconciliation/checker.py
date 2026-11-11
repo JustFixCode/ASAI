@@ -19,6 +19,9 @@ OPEN_ORDER_STATUSES: Final[frozenset[str]] = frozenset((
 ))
 OPEN_ORDER_SIDES: Final[frozenset[str]] = frozenset(("buy", "sell"))
 _ZERO: Final[Decimal] = Decimal("0")
+_MAX_DIGITS: Final[int] = 28
+_MIN_ADJUSTED: Final[int] = -18
+_MAX_ADJUSTED: Final[int] = 18
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,7 +89,13 @@ class ReconciliationResult:
 
 
 def _finite_decimal(value: object) -> bool:
-    return isinstance(value, Decimal) and value.is_finite()
+    """Accept finite, deliberately bounded financial Decimals only."""
+    if not isinstance(value, Decimal) or not value.is_finite():
+        return False
+    if value.is_zero():
+        return True
+    return (len(value.as_tuple().digits) <= _MAX_DIGITS
+            and _MIN_ADJUSTED <= value.adjusted() <= _MAX_ADJUSTED)
 
 
 def _aware_time(value: object) -> bool:
