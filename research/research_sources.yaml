@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "purpose": "manual_untrusted_research_capture_only",
+  "sources": [],
+  "fetching_enabled": false,
+  "network_enabled": false,
+  "plugins_enabled": false,
+  "commands_enabled": false,
+  "execution_enabled": false,
+  "model_training_enabled": false,
+  "policy_changes_enabled": false,
+  "live_trading_changes_enabled": false
+}
