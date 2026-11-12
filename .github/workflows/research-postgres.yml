@@ -1,0 +1,86 @@
+name: Research PostgreSQL integration
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# This disposable service is only for offline research-result persistence tests.
+# It has no broker credentials, order-routing inputs, or journal operations.
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    name: PostgreSQL research runner
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      PGHOST: localhost
+      PGPORT: "55432"
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      PGDATABASE: postgres
+      ASAI_RESEARCH_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:55432/postgres
+      ASAI_RESEARCH_POSTGRES_DSN: postgresql://asai_research_test:research-test@localhost:55432/postgres
+
+    steps:
+      - name: Check out source
+        # actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Python
+        # actions/setup-python@v5.1.0
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d
+        with:
+          python-version: "3.12"
+          check-latest: false
+
+      - name: Install pinned PostgreSQL adapter
+        run: |
+          python -m venv .venv-research-postgres
+          .venv-research-postgres/bin/python -m pip install --disable-pip-version-check --no-cache-dir --requirement requirements-research-postgres.txt
+
+      - name: Create constrained roles and test login
+        run: |
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE asai_poster NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          CREATE ROLE asai_safety_operator NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          CREATE ROLE asai_reader NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          CREATE ROLE asai_order_operator NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          CREATE ROLE asai_noaccess NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          CREATE ROLE asai_research_writer NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          CREATE ROLE asai_research_test LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS PASSWORD 'research-test';
+          GRANT asai_research_writer TO asai_research_test;
+          SQL
+
+      - name: Apply research persistence migrations
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f db/001_foundation.sql
+          psql -X -v ON_ERROR_STOP=1 -f db/002_paper_orders.sql
+          psql -X -v ON_ERROR_STOP=1 -f db/003_research_runs.sql
+
+      - name: Run SQL contract and privilege tests
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f db/test_role_privileges.sql
+          psql -X -v ON_ERROR_STOP=1 -f db/test_research_runs.sql
+
+      - name: Run genuine PostgreSQL Python integration tests
+        run: .venv-research-postgres/bin/python -m unittest discover -s tests -p 'test*.py' -v
