@@ -1,0 +1,10 @@
+[package]
+name = "backtest-contract-oracle"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85.1"
+description = "Offline, read-only validator for bounded backtest fixtures"
+license = "MIT"
+publish = false
+
+[dependencies]
