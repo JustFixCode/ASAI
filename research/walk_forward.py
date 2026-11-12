@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation, localcontext
+from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN, localcontext
 import hashlib
 import json
 from typing import Iterable
@@ -153,6 +153,7 @@ def _mean(rows: tuple[PointInTimeObservation, ...]) -> Decimal:
     try:
         with localcontext() as context:
             context.prec = _PRECISION
+            context.rounding = ROUND_HALF_EVEN
             result = sum((item.target for item in rows), D("0")) / D(len(rows))
     except (InvalidOperation, OverflowError) as exc:
         raise WalkForwardInputError("invalid baseline arithmetic") from exc
@@ -167,6 +168,7 @@ def _metrics(predictions: tuple[BaselinePrediction, ...]) -> OutOfSampleMetrics:
     try:
         with localcontext() as context:
             context.prec = _PRECISION
+            context.rounding = ROUND_HALF_EVEN
             errors = tuple(item.prediction - item.actual for item in predictions)
             count = D(len(errors))
             mae = sum((abs(error) for error in errors), D("0")) / count

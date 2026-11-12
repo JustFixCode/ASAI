@@ -1,6 +1,6 @@
 """Tests for offline point-in-time expanding baseline walk-forward evaluation."""
 from datetime import datetime, timedelta, timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_DOWN, ROUND_UP, localcontext
 from pathlib import Path
 import unittest
 
@@ -53,6 +53,18 @@ class OfflineWalkForwardResearchTests(unittest.TestCase):
             self.assertLess(window.train_feature_end, window.test_feature_start)
             self.assertLess(window.train_feature_start, window.train_feature_end)
             self.assertLessEqual(window.test_feature_start, window.test_feature_end)
+
+    def test_decimal_results_ignore_ambient_rounding_for_repeating_fractions(self):
+        fixture = rows(("0", "0", "1", "1", "2"))
+        config = WalkForwardConfig(3, 2)
+        with localcontext() as context:
+            context.rounding = ROUND_UP
+            rounded_up = run_walk_forward(fixture, config, as_of=AS_OF)
+        with localcontext() as context:
+            context.rounding = ROUND_DOWN
+            rounded_down = run_walk_forward(fixture, config, as_of=AS_OF)
+        self.assertEqual(rounded_up, rounded_down)
+        self.assertEqual(rounded_up.windows[0].baseline_mean.as_tuple().digits[:3], (3, 3, 3))
 
     def test_requires_as_of_and_rejects_future_labels(self):
         with self.assertRaises(TypeError):
