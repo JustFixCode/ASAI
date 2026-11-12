@@ -1,0 +1,9 @@
+{
+  "case": "invalid_utf8",
+  "category": "json_parsing",
+  "note": "Parser rejects ambiguous or malformed JSON before analysis.",
+  "expected": {
+    "outcome": "error"
+  },
+  "raw_input": "\udcff"
+}

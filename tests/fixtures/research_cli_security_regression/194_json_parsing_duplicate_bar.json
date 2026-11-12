@@ -1,0 +1,9 @@
+{
+  "case": "duplicate_bar",
+  "category": "json_parsing",
+  "note": "Parser rejects ambiguous or malformed JSON before analysis.",
+  "expected": {
+    "outcome": "error"
+  },
+  "raw_input": "{\"schema_version\":1,\"as_of\":\"2026-01-02T14:35:00+00:00\",\"bars\":[{\"open_timestamp\":\"2026-01-02T14:30:00+00:00\",\"open_timestamp\":\"2026-01-02T14:30:00+00:00\"}],\"strategy\":{},\"config\":{}}"
+}
