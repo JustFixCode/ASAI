@@ -16,17 +16,17 @@ _PAPER_AND_DEPLOY_CASES = {
     ),
     "interfaces-market-data/quote-transport-bounds": (
         "test_demo_paper_connection.PaperConnectionTests.test_content_length_truncation_rejected",
-        "test_demo_paper_connection.PaperConnectionTests.test_deadline_terminates_a_stalled_local_worker_without_output",
+        "test_demo_paper_connection_worker.PaperConnectionTests.test_deadline_terminates_a_stalled_local_worker_without_output",
         "test_demo_paper_connection.PaperConnectionTests.test_real_chunked_response_truncation_and_body_limit",
         "test_demo_paper_connection.PaperConnectionTests.test_real_detached_http_responses_are_closed_on_every_path",
         "test_demo_paper_connection.PaperConnectionTests.test_response_cleanup_errors_do_not_prevent_connection_cleanup",
         "test_demo_paper_connection.PaperConnectionTests.test_response_body_size_boundary",
-        "test_demo_paper_connection.PaperConnectionTests.test_isolated_python_worker_runs_with_mocked_transport",
-        "test_demo_paper_connection.PaperConnectionTests.test_worker_deadline_and_private_ipc",
+        "test_demo_paper_connection_worker.PaperConnectionTests.test_isolated_python_worker_runs_with_mocked_transport",
+        "test_demo_paper_connection_worker.PaperConnectionTests.test_worker_deadline_and_private_ipc",
     ),
     "interfaces-market-data/app-lifecycle-audit": (
         "test_demo_private_deploy.PrivateDeployTests.test_configuration_is_fixed_and_help_explains_limits",
-        "test_demo_private_deploy.PrivateDeployTests.test_preflight_and_simulator_integration_no_secret_logs",
+        "test_demo_private_deploy_lifecycle.PrivateDeployTests.test_preflight_and_simulator_integration_no_secret_logs",
     ),
 }
 for _flow, _cases in _PAPER_AND_DEPLOY_CASES.items():
