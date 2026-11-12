@@ -6,5 +6,48 @@ import base64
 import zlib
 
 FLOW_SPECS_PART_1: dict[str, tuple[str, tuple[str, ...]]] = ast.literal_eval(
-    zlib.decompress(base64.b85decode('c-pmDO>^To4*e^8>+Pyh`o6cVIZsupXD)kEQ4(x(OpzLXBvH2Zzt00meK>L4k~@3pv}F?{AApAk=)YfrI#3)dufzFUN3HIashsb~S85o%ds61hzy9&h_0PWig3pmctohT!cl`6{jBdw2@GLyYH+e0Ex|pnuv&Y(5GuBNS>t`KLHNB`d*7)6@)JE+r?Ec8Cb#>#sch4Hu=w)yrdBRg(j!jw>PPMXKZRm--I#O+PuVdI?IgsJ?7Pjheaz2WkUcF?aI@Dwj&bQQk`T7;+*03eZpDJyK6e~~Db?$&IFAlX;w$}Ebt&UV5j8hRGBOS@tA$q<%pRRGv5Pk_CCE9YyUWdSopFMjcjsuAuZDB!o8LV2a5$c1|0K~X}8~@mHvM0c#8Uu@Rdok>(b$w5^Q}XDb$#j>N-(eYbPZicyz4GTuF70(3?*TJJh2tDj<QU=OSf!t+<{j`=KkU8Zgr4)oG#`<o{Fy?h#C<Ipw8bSQ{Ha^QIR)fR^eOODG0v8IW%ZDZKrGg=RJZgV!Lv4|3dpebRJG1V?@YJ{zGT^bw$%p5$o6n9wk}}OUkQF;P<n;0c4FD-z&Du;&w<Z*JC^%t+nUr#ruXEJWZMzH>(W-TkfXk}KU<Q7ZwNWf!2wzt2Nf2N4SFD>En(%+6CCescz7%izt7J;*p30ptWaBu&kjCB)X)pHNiqQ;;=S&GXJcG@26#`-i)%e_g|+u?z04){Y#<xbU9LSj(=nyV0r{**Ugp;2fSV}==Q!X|EQw*AO&~AbyA<A}f2ftG;)rXRZxei@TS<Oi>AUKr5C|5g@4IA(h~2pYaW2qH=5_q_2!(RZow1t_m#=g1?v*mx5gW@y*EtF~X;V~S@Jy*&s*p=4F_SxdvP@Puc}F#(79}l54~J4D&n0hhneGRat?(Y$!4q6`JjIIL!SD**tJ_7YP{+fs`S0UoWX)Y_K$_;N!Bw3T2p5+sFE;=%DWaI_R}PO(tD|M7v@;SLHp%9*O{vHRDcgfN-uq5ug-a2I#-db$A8p*T6$6mjH%pVewa~2W&9SIVc071{P)Bt&k{7_~2}y2Ss@RV|h4n=-%Y}@O6wdTqs>Jm$-e7u5qDUFK)BegEOgbGQbbCk}j)bgZv_(3V;H)RiZsDrh)*(46R80NTVO)$s;5}&wBM?@;dz-wMQo;Ui@RMD)b_3ZW19ISUp@}ERHHWG)9sH6LcbH!ch=A(|+jV?$@l>B!uSi{<VAU4NG4bVY0n09~ii>{+(@8q$%ve*E$hpJJSSlcnyyw=l`k3{@!Kh=lnsc^j;*9y70lOx6-7|-auH|&Q;ODGP%MI0_8r(N(Diqv!cSaX=iNrVI%nH659F}K+hI0$pS63{s=dU0BZ3fk<N4E2;(eUT$<VRY<c|~NMYsK@xD|7ZK#(_JUe2N*H4LeM67euLO$RNPv6*SwSc8!RvJ?0D(S&L|OeU|8eG9QjvDZ3z9;L+*a<C*b|gt!iK3!#XeK-Z!t5Npm?Iha2Q>NQ&|yA_dB3in*K3Rc}7XfBL0FY+A_-`!Y9qf^p1K!Wt}b4!ExWzQA}JsVgxtk#S100|fM>sk&`Amza)2!P1y_u+ea@>m|Mk8X51u4O@wc3hpA;H}NA@%nD}?Z9!;dCkUGX7ipRY|Hs`P^}Kp1$!%QLTaSVgTkID=9A(@Eaw6^aaS{<7#>tIyE1Sw1f~51hRf`9Kvk_FjgG|QkE24}Vs6Y5blos*2|b1SYu;`#sjH3*O862yxA63&x{A}F%#@6C=QMm0q-;FrST@Umw(_G|bI$cjb3D%%06MtP*}7*G;S^CBX;->1yF!P>6fVXlh|GbzvFieCgWcTjPG)lPZdmsBgCNbl9@NsLOW>2f(Z_@q>o)Y#Nmk%Y_iV8KlTc6I7~QP6Bd6EF@jhG@IxroVdM9@x(RNqzeUpRb3iXN1APD6qK5rmAQFOV$RGRrEE`NTfL5;?#ZZ1tTmPj&=hId=u@JCJnEjU0@iJ%Oh<P%s$_ZLO2o@tz>Q5-}#GA^{pty+>mcE2Y|m)4PMhDkibX#F@u$LU2c>(NIUBHX}a((%EnA)Fi<Ce|yK!X{uYpQBu?Kdwu)h@d&0g6iq2=%43Z>!P%0i=~6=2L;UxkaBW}7E^VEHucP{`|bBb6haq;d(Krl(@&F@(PZg~i~CD)!M61)d3Uq!O%5pi^)ejzBp=L^ZIq_Sq7Ug*=G#+pP3ZM#kaz}I|CN;F%5Jol^!3a+Y-^btOjiw4_AcJKd!s3uM5kQ{Lnn^81^qlDIDjor9Q!j#{9ha(vx727$Ww*f=(jx4d?HlSGE|rw@x7>YX+X2bgRi+u4P)Q9B4o>SH{VfzG=AH-*YgP>6u??M6`z{BTILre3s8Gx23IhZ@x7b|zeXjK$?lJNo9jNkb;2jQXVN8kHd11Cdf_mS5@y+QeQvOIvkMR84yEXt#>LZmdLX=J#yfYIUup2I!YphuZ{=woHrZ`_5?+IhPqQKLoCdv59Xf|p@&%`hiPP@g<o(|~3(|ArTW&C8bq9HTG-hZ|)FP-#@yJ8ukf+GIcPW72+{5%9tc)*KZzfbi1FmEq*S;SnLk(p836feVjc@!)>cA2+;K03F_tzgRS@L33J(!+)=f{Wt;QzlBTfd8q%jq0C(@@6~EuGV!L551;?Wh^FY^|7>A=<phQXE81&h$0SO+HAs?RPLHPdet8K!h?O?(SVTN2%5K80XhOI!*)OiAT!2*7dn%?lw85+v?ir_(gh_tIB`2cUfJ}fi5bkMCE=Qim9p2f#Z#~X8>_<x$Hdgsb6JUUIOLo*Z=(u_l@Ss'.encode("ascii"))).decode("utf-8")
+    zlib.decompress(base64.b85decode('c-pmEO>^Tm68$TCo1LoAbI&c6y>69vCYPL85ZRItfdGRK+nQAV`@U`fBxTDUQg$x3^}%l7b>sExhX48$)SlwG@j9Ho^wjA=na25^e51zEy9Z@H{rs<gFTeKbC%ldnV#}}YzT(HdGrBwfhWEmqe3GA~&=!-earV$UYtHR1o!dtpk1ai^F1GmIAJj$dEbRWstaa_qdG8)ItkKixLh^)n`EfYuR5-TE_N}1@^6EgX(Swd*h2=nopSQ5phNJUQ><sED8`YsDyLY~$elph6;M$;vWK?wi?mu|>t-e}V)>cQ2#RaQISk8v^Fi@{mEGumH8txVLf=yv%Is&L-db`KG=?ugKd*^J3UTKR@_DW;3#s%sn6fOZ83gjOYBN;w@{tTDP%t)4BHQJ6THlAw4Zpe)MaA>WvfM(C=P`fuyF;bBZ<Xfzh<IC&cIcEspL>eYq6URY^zz;uq-g!Kal<~H(p!<ThY~uok6_%4dA`{fkz@qG4414MvVrhFp4sj&YU$?w6c%wQ4jGi-&ap+=klTp*QK#!fAC~xFtw4xrU!DG#!{HYOGy^iNw!WE*zhW9D*LF1KJr5~te5BO*px1w0%<9spAOQa~j>iH|=(FzT%33}lWWb?!cDS&*UPl4YR<7|0QR*!(3gDBSVsP1TMjQ&iHlNLwjXeopxJcE9M!{8FA;`KBT13~QnkN>>Kel?b}@UhoVVl?~mq`D(^G_9?DJnHU<_XiwltUxpWNsi}4+_{9D^yin!aRSve0mr^OHXw!Qoe8&OMzWmyw$p|;EcUR#lMoqzpg$8*j^jNje6%r5dL1}O)$o-6%<Jb8I&C|XdZ`2h`2*SRjPLbnZ84FhKDR$vl7g@!a6ShXW$QeuFel@vM>5)SWDdxKz_fXHU*7yWz4wYc1}IZ%YbicDq$fg3Pt+xe9<twiBt&R;#&suv_u#x_tp~2K_A;!OM8uH|WJ9_sv`1$$0r3KPtzbT`z4HQB^D)-3$6K+SdFyNf^XtK-@Qgcy)V~}E<j9K++JxBXPI!%<^nG(wNCXShw{0>+<nE+U_$<&<rd#~R$)d8&jk%i_m$$R`?mOj5L2N7^&fZbTe3T+<fLxE(sFchrB^*9k=3%V7rxsZY$&<5(Qz?>XN|-~YhY_+SY~{MwU@BbQ9hE&$(Q>Nm9Ipuhc@e(R6B6NYj132!gE+I*>)|T|b@yxjeP4}S6wDE1kPAC&OFpK6S45BC1o#s)j@REg38A_UmiN?6NUU&@&1ajU3k`??67EWdOo|Ge3^juSW8)TA3_vbl8Px1r>Xi8Aj8`V77Yg5~4(jT8nE@xREw-bEv*le_U#Nks1b9i|M31G+UOy}=Os_ePQpaz!zla7?TTeJ31JoyHLYA7^;?S1lY%6AO;abwYf#lHdPUB(>ZN`I!b_Ffwy?4obDM%b|sp?yH?MAXiN9Dxjau#uBk;_P*vhYjh-C%w;AR4<Txa)c45~(4v;FIcKVb$D(B;MRxz;cM265{t@S_O*EyjW{dK0C}_rOsl>TXsEZoJpnZjXH$VzwwzZZA-@d#)Ms#5wwe_6w-Rw{#g~s^1kd)jcSMeMop!O+j)0FFMo-|7vanXu^Js7&oU6}7O<~AF~goezWc?Ds#EuD=U1Z<&&A3QG^g`|$a>dF<bhY_>|=~0_tkk76E-V6)VvF#hcv_%VDbveaNoL}NVzTM3=>(0Y;{BKaR6mr9J5jmL9)Q3*Ll)l&d-F(b(lNIQFsDfi)ulxIp5@D{vfEAY%zN)QmV*<scIFh`Yq607-e4MJs`jPb0LjhN#g~fGa$|#jd_Bw!39#!2G%Bv=f!wXJUaQl6kQZZdGHAmAhO23`&!<)FK;ZDZgg3$<+h>4i99jETU%P_#oli7z<JVp&BhmIvrm!FW&Js+7K`YE-P{n?&RLRm8F%KF@LYT>+KNEfXcW)t@VwV0k5y&yCx3oJyFu|{eAUy_9D1zX33W=RjTq%Vr;P}+{ekUYdi)5=1MsUI(k54L9J`Qq0v6h!%FrKl+{AL$50(0NXY6*blG#LHvmvxY4+vl;_dP^O3uSpAo?#vo%08Et+$Su%+BGLvLB5#hE^2=CWT1fNv$wS^;7P2kLAtt<Y$5r*Dl(N1l59}hc7TyOinty!PpWU2sLJfwICo0p2StsIXBNz6IcA-Fsnz{7LYXl_0D#%ax<|;Q6ro*c6QObagHnzuT+AMU$jDv!b&0&fZXSD7Gg)5kxcwVO2`2aa(6d!JBJ9IX9}-&ax1pDbLW8R29u1!VAk>pLM(-Bvo(XX8*bf)(9<_+Yn3Fw`sP8L`yeh!5h4x5h6om3HCp!=(FP)RXRE9b)Q~!2Pb!c0~!-OTyF=xZ8E?1IpP2O>*x|4J&TnTWvMs8x_%R7P}S}e0=);H)P5gEQ0=tWQ!^Y0|{cQ5%z4p!{ojjYc!qb1wWT1aCRJ}C2Hbr?~^xobPoxsFQss3I|#GN-nq6{->Mw{XE?;0x_!5>E^}e;%V_5-Y{D3>wSG?hQ<8KU;6A8qw`M;a&sG<@=CL%a=>ZD$T$|T0sqTwfUW<%S&;##l<{H7)GQ~07#jFq$g3(5r_pB$?f)sF-m2YPVbb}Y9{$znw46a4VCa0l>oQxck=E{0aF7|=1lXD?1N%3UBW?QMAnlat#TDtDXgM5I7>WnheTC!RyLzGlcbl6P}rL1XLYNga^xJXn;q3`5+!-jAUO%lThLFlvgvkbB8h(_05U@>1GPL|%LA{D`R;-E8aNNvrh(K}RQkj>$~<PCrZwR_>|AN+%3Vs{qke7Jz0%j?5h)Z#)_~5}AxC>LFNPT7iFd(N`V(0Vz74$)=IiITc$?J~JrBYMhNr5(JR>YQTW>C>k=i5<ug}lcI=hHK?$nEV+_`vMPSJ$d%=tzS)7>cVDopY*^H!c}!^vjjRo;$rS&<Ea=QQYjc@LU=!Rcc1y4jojH^wv*)zbi|>|ny`2J(1q+}0hb<3=YJk9=hl%GLW;F9i^mLG{MCjPVu?yGqe9=XdoV4eHg6oC~Odtnxup3#IXe@3!|W<O3EwsO6mLl}F}taaMyVUE1C6`1`-b);F<nIi;o%ycLf$x4?e{8Loo2qh`>uwPIp|Xtj^IIEZMU=&Q~TUpa2;_h3vOqD)t=JWr8u53ZlG)aqM|^QEhf^<t#*Ncp#r<+^3EQ3KPj4K12*b)aUt-T&C=at|{lx~Qa*mD_PBrfQu7#~W==0AlZQ*<o=nv#}{rK7aoE|G8`*T>'.encode("ascii"))).decode("utf-8")
 )
+
+# Reviewed paper connection and private deployment cases, assigned explicitly.
+_PAPER_AND_DEPLOY_CASES = {
+    "safety-risk/unsafe-input-rejection": (
+        "test_demo_private_deploy.PrivateDeployTests.test_bad_arguments_do_not_echo_sensitive_input",
+    ),
+    "broker-reconciliation/paper-endpoint-contract": (
+        "test_demo_paper_connection.PaperConnectionTests.test_exact_get_fixed_tls_origin_and_no_proxy_or_redirect",
+        "test_demo_paper_connection_safety.PaperConnectionTests.test_result_and_cli_print_only_safe_facts",
+    ),
+    "broker-reconciliation/credential-and-error-safety": (
+        "test_demo_paper_connection_safety.PaperConnectionTests.test_failures_and_command_line_host_injection_do_not_leak",
+        "test_demo_paper_connection.PaperConnectionTests.test_import_does_not_read_environment_or_connect",
+        "test_demo_paper_connection_safety.PaperConnectionTests.test_missing_or_invalid_environment_never_calls_transport",
+        "test_demo_paper_connection_safety.PaperConnectionTests.test_transport_exceptions_are_swallowed_without_details",
+        "test_demo_paper_connection_worker.PaperConnectionTests.test_worker_never_sends_raw_exception",
+    ),
+    "broker-reconciliation/request-allowlist": (
+        "test_demo_paper_connection.PaperConnectionTests.test_redirects_and_errors_are_not_read_or_followed",
+        "test_demo_private_deploy_lifecycle.PrivateDeployTests.test_unavailable_port_fails_check_and_serve",
+    ),
+    "broker-reconciliation/evidence-freshness-identity": (
+        "test_demo_paper_connection_safety.PaperConnectionTests.test_optional_identity_mismatch_fails_closed",
+        "test_demo_paper_connection_worker.PaperConnectionTests.test_worker_result_allowlist_and_identity_validation",
+        "test_demo_paper_connection_worker.PaperConnectionTests.test_worker_success_returns_only_status_and_identity",
+    ),
+    "persistence-idempotency/manifest-storage-boundary": (
+        "test_demo_private_deploy.PrivateDeployTests.test_directory_must_be_private_and_not_symlink",
+        "test_demo_private_deploy.PrivateDeployTests.test_directory_permissions_rechecked_before_creation",
+        "test_demo_private_deploy.PrivateDeployTests.test_failed_write_cleans_up_and_partial_writes_finish",
+        "test_demo_private_deploy.PrivateDeployTests.test_symlink_in_ancestor_and_dotdot_are_rejected",
+        "test_demo_private_deploy_lifecycle.PrivateDeployTests.test_server_close_failure_cannot_prevent_token_cleanup",
+        "test_demo_private_deploy_lifecycle.PrivateDeployTests.test_sigterm_during_token_publication_cleans_up",
+        "test_demo_private_deploy.PrivateDeployTests.test_symlink_replacement_is_not_removed",
+        "test_demo_private_deploy.PrivateDeployTests.test_exclusive_create_and_replacement_safe_cleanup",
+        "test_demo_private_deploy.PrivateDeployTests.test_existing_file_and_symlink_fail_closed_without_overwrite",
+        "test_demo_private_deploy.PrivateDeployTests.test_wrong_owner_is_rejected",
+    ),
+}
+for _flow, _cases in _PAPER_AND_DEPLOY_CASES.items():
+    _category, _existing = FLOW_SPECS_PART_1[_flow]
+    FLOW_SPECS_PART_1[_flow] = (_category, _existing + _cases)
+del _flow, _cases, _category, _existing, _PAPER_AND_DEPLOY_CASES
