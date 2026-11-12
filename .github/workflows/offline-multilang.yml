@@ -1,0 +1,84 @@
+name: Offline multi-language tools
+
+on:
+  push:
+    paths:
+      - "tools/research-chain-verify/**"
+      - "tools/backtest-contract-oracle/**"
+      - ".github/workflows/offline-multilang.yml"
+  pull_request:
+    paths:
+      - "tools/research-chain-verify/**"
+      - "tools/backtest-contract-oracle/**"
+      - ".github/workflows/offline-multilang.yml"
+  workflow_dispatch:
+
+# This workflow only reads repository contents. It does not use credentials,
+# caches, network-facing tool inputs, or any broker execution path.
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go offline verifier
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools/research-chain-verify
+    steps:
+      - name: Check out source
+        # actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Go 1.24.4
+        # actions/setup-go@v5.0.2
+        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491
+        with:
+          go-version: "1.24.4"
+          check-latest: false
+          cache: false
+
+      - name: Check Go formatting
+        run: |
+          unformatted="$(find . -type f -name '*.go' -print0 | xargs -0 gofmt -l)"
+          test -z "$unformatted" || { printf '%s\n' "$unformatted"; exit 1; }
+
+      - name: Run Go tests
+        run: go test ./...
+
+      - name: Run Go vet
+        run: go vet ./...
+
+  rust:
+    name: Rust offline contract oracle
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools/backtest-contract-oracle
+    steps:
+      - name: Check out source
+        # actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Set up Rust 1.85.1
+        # actions-rust-lang/setup-rust-toolchain@v2.0.1
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30
+        with:
+          toolchain: "1.85.1"
+          components: rustfmt, clippy
+          cache: false
+
+      - name: Check Rust formatting
+        run: cargo fmt --check
+
+      - name: Run Rust tests
+        run: cargo test --locked
+
+      - name: Run Rust clippy
+        run: cargo clippy --locked -- -D warnings
