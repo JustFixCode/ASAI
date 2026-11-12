@@ -1,0 +1,9 @@
+{
+  "case": "nan_constant",
+  "category": "json_parsing",
+  "note": "Parser rejects ambiguous or malformed JSON before analysis.",
+  "expected": {
+    "outcome": "error"
+  },
+  "raw_input": "{\"schema_version\":NaN}"
+}
