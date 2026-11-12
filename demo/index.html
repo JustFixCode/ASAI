@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>ASAI Local Simulator</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #10131a; color: #edf2f7; }
+    main { max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+    .notice { border-left: 4px solid #f2b84b; background: #292312; padding: 1rem; border-radius: .25rem; }
+    .card { background: #1b202b; padding: 1rem; border-radius: .5rem; margin: 1rem 0; }
+    label { display: block; margin: .7rem 0; } input, select, button { font: inherit; padding: .55rem; } input, select { width: min(100%, 330px); } button { cursor: pointer; margin: .2rem .2rem .2rem 0; } pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #0b0e14; padding: 1rem; min-height: 3rem; } #status { min-height: 1.4rem; } .bad { color: #ffaaa5; } .good { color: #a7f3b3; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>ASAI Local Simulator</h1>
+  <section class="notice"><strong>Simulation only.</strong> This page does not place real-money trades, is not a broker, and is not publicly deployed. Fixture quotes are simulated; a live quote source is only used when the local server was explicitly started with it.</section>
+  <section class="card" aria-labelledby="access-title">
+    <h2 id="access-title">Local access</h2>
+    <p>Paste the session token printed by the local server. It stays in this browser tab only and is never added to the URL.</p>
+    <label>Session token <input id="session-token" type="password" autocomplete="off" spellcheck="false"></label>
+    <button id="connect" type="button">Connect locally</button>
+    <p id="status" role="status"></p>
+  </section>
+  <section class="card">
+    <h2>In-memory simulator state</h2>
+    <button id="refresh" type="button" disabled>Refresh snapshot</button>
+    <button id="quote" type="button" disabled>Get AAPL quote</button>
+    <pre id="snapshot">Connect to view local simulator state.</pre>
+  </section>
+  <section class="card">
+    <h2>Submit simulated order</h2>
+    <label>Side <select id="side" disabled><option value="BUY">Buy</option><option value="SELL">Sell</option></select></label>
+    <label>Quantity <input id="quantity" type="number" min="1" step="1" value="1" disabled></label>
+    <label>Limit price <input id="limit-price" inputmode="decimal" value="190.02" disabled></label>
+    <button id="order" type="button" disabled>Submit simulated order</button>
+    <p>This sends a simulated order to this local process only. Results depend on the simulator rules.</p>
+  </section>
+</main>
+<script>
+(() => {
+  'use strict';
+  let token = '';
+  let csrf = '';
+  const $ = (id) => document.getElementById(id);
+  const output = $('snapshot');
+  const status = $('status');
+  const controls = [$('refresh'), $('quote'), $('side'), $('quantity'), $('limit-price'), $('order')];
+  const setStatus = (message, bad = false) => { status.textContent = message; status.className = bad ? 'bad' : 'good'; };
+  const display = (value) => { output.textContent = JSON.stringify(value, null, 2); };
+  const headers = (write) => {
+    const result = { 'X-Session-Token': token };
+    if (write) { result['Content-Type'] = 'application/json'; result['X-CSRF-Token'] = csrf; }
+    return result;
+  };
+  async function request(path, options = {}) {
+    const response = await fetch(path, { ...options, headers: { ...headers(Boolean(options.method && options.method !== 'GET')), ...(options.headers || {}) }, credentials: 'same-origin' });
+    let data = {};
+    try { data = await response.json(); } catch (_) { /* server responses are expected to be JSON */ }
+    if (!response.ok) throw new Error(data.error || 'local request failed');
+    return data;
+  }
+  async function refresh() {
+    try { display((await request('/api/snapshot')).snapshot); setStatus('Local simulator state refreshed.'); }
+    catch (error) { setStatus('Could not refresh: ' + error.message, true); }
+  }
+  $('connect').addEventListener('click', async () => {
+    token = $('session-token').value;
+    csrf = '';
+    if (!token) { setStatus('Paste the local session token first.', true); return; }
+    try {
+      const bootstrap = await request('/api/bootstrap');
+      csrf = bootstrap.csrf_token;
+      if (!csrf) throw new Error('local CSRF setup failed');
+      controls.forEach((element) => { element.disabled = false; });
+      $('session-token').value = '';
+      setStatus('Connected to local simulator.');
+      await refresh();
+    } catch (error) { token = ''; setStatus('Could not connect: ' + error.message, true); }
+  });
+  $('refresh').addEventListener('click', refresh);
+  $('quote').addEventListener('click', async () => {
+    try { const quote = (await request('/api/quote?symbol=AAPL')).quote; display(quote); const source = quote && quote.source === 'fixture' ? 'simulated fixture' : quote && quote.source === 'alpaca_iex' ? 'read-only IEX' : 'unavailable'; setStatus('Quote loaded: ' + source + '.'); }
+    catch (error) { setStatus('Could not get quote: ' + error.message, true); }
+  });
+  $('order').addEventListener('click', async () => {
+    const quantity = Number($('quantity').value);
+    if (!Number.isInteger(quantity) || quantity < 1) { setStatus('Quantity must be a positive whole number.', true); return; }
+    const limitPrice = $('limit-price').value.trim();
+    if (!/^(?:0|[1-9]\d*)(?:\.\d{1,8})?$/.test(limitPrice) || Number(limitPrice) <= 0) { setStatus('Enter a positive limit price with up to 8 decimal places.', true); return; }
+    const payload = { order: { symbol: 'AAPL', side: $('side').value, quantity: quantity, limit_price: limitPrice }, quote_symbol: 'AAPL', idempotency_key: crypto.randomUUID() };
+    try { display((await request('/api/orders', { method: 'POST', body: JSON.stringify(payload) })).order); setStatus('Simulated order submitted locally. No real trade was placed.'); await refresh(); }
+    catch (error) { setStatus('Order was not accepted: ' + error.message, true); }
+  });
+})();
+</script>
+</body>
+</html>
