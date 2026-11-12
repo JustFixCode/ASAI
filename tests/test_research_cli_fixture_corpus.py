@@ -13,6 +13,38 @@ from app.research_cli import ResearchCliError, run
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "research_cli_security_regression"
 EXPECTED_COUNT = 200
+FILL_FIELD = "research_document.text"
+MAX_FILL_BYTES = 65_537
+
+
+def _fixture_payload(fixture_path: Path, fixture: dict[str, object]) -> bytes:
+    """Expand the one reviewed compact long-text fixture deterministically."""
+    if "input" in fixture:
+        raw = json.dumps(fixture["input"], separators=(",", ":"), ensure_ascii=True)
+    elif "raw_input" in fixture:
+        raw = fixture["raw_input"]
+    elif "input_fill" in fixture:
+        descriptor = fixture["input_fill"]
+        if type(descriptor) is not dict or set(descriptor) != {"input", "field", "fill", "repeat_count"}:
+            raise AssertionError(f"{fixture_path.name} has an invalid input_fill descriptor")
+        source, field, fill, repeat_count = (descriptor["input"], descriptor["field"],
+                                             descriptor["fill"], descriptor["repeat_count"])
+        if (type(source) is not dict or field != FILL_FIELD or type(fill) is not str
+                or not fill or not fill.isascii() or type(repeat_count) is not int
+                or not 1 <= repeat_count <= MAX_FILL_BYTES
+                or len(fill.encode("ascii")) * repeat_count > MAX_FILL_BYTES):
+            raise AssertionError(f"{fixture_path.name} has an unsafe input_fill descriptor")
+        document = source.get("research_document")
+        if type(document) is not dict or document.get("text") != "":
+            raise AssertionError(f"{fixture_path.name} input_fill must target an empty research_document.text")
+        expanded = json.loads(json.dumps(source))
+        expanded["research_document"]["text"] = fill * repeat_count
+        raw = json.dumps(expanded, separators=(",", ":"), ensure_ascii=True)
+    else:
+        raise AssertionError(f"{fixture_path.name} has no input representation")
+    if type(raw) is not str:
+        raise AssertionError(f"{fixture_path.name} raw input must be text")
+    return raw.encode("utf-8", "surrogatepass")
 
 
 class ResearchCliFixtureCorpusTests(unittest.TestCase):
@@ -29,9 +61,8 @@ class ResearchCliFixtureCorpusTests(unittest.TestCase):
             if not fixture_path.name.startswith(f"{number:03d}_"):
                 raise AssertionError("fixture files must have contiguous three-digit sequence prefixes")
             fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
-            expected_keys = ({"case", "category", "note", "expected", "input"}
-                             if "input" in fixture else {"case", "category", "note", "expected", "raw_input"})
-            if set(fixture) != expected_keys:
+            input_keys = [key for key in ("input", "raw_input", "input_fill") if key in fixture]
+            if len(input_keys) != 1 or set(fixture) != {"case", "category", "note", "expected", input_keys[0]}:
                 raise AssertionError(f"{fixture_path.name} has an invalid fixture schema")
             case = fixture["case"]
             if type(case) is not str or not case or case in seen_cases:
@@ -44,11 +75,7 @@ class ResearchCliFixtureCorpusTests(unittest.TestCase):
                 raise AssertionError(f"{fixture_path.name} has an invalid expected result schema")
             if expected.get("mode") not in {None, "OFFLINE_HISTORICAL_ANALYSIS_ONLY"}:
                 raise AssertionError(f"{fixture_path.name} has an unsupported expected mode")
-            raw = (json.dumps(fixture["input"], separators=(",", ":"), ensure_ascii=True)
-                   if "input" in fixture else fixture["raw_input"])
-            if type(raw) is not str:
-                raise AssertionError(f"{fixture_path.name} raw input must be text")
-            payload = raw.encode("utf-8", "surrogatepass")
+            payload = _fixture_payload(fixture_path, fixture)
             if payload in seen_payloads:
                 raise AssertionError(f"{fixture_path.name} duplicates an actual input payload")
             seen_payloads.add(payload)
