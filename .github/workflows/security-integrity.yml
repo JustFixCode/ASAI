@@ -1,0 +1,149 @@
+name: Research security and integrity
+
+on:
+  push:
+    paths:
+      - "research/**"
+      - "tests/**"
+      - ".github/workflows/**/*.yml"
+      - ".github/workflows/**/*.yaml"
+  pull_request:
+    paths:
+      - "research/**"
+      - "tests/**"
+      - ".github/workflows/**/*.yml"
+      - ".github/workflows/**/*.yaml"
+  workflow_dispatch:
+
+# This job reads only the checkout and receives no secrets or write token.
+permissions:
+  contents: read
+
+jobs:
+  security-integrity:
+    name: Offline research and workflow integrity
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        # actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        # actions/setup-python@v5.1.0
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d
+        with:
+          python-version: "3.12"
+          check-latest: false
+
+      - name: Run bounded security and integrity checks
+        run: |
+          python - <<'PY'
+          import ast
+          import re
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          failures: list[str] = []
+          root = Path.cwd()
+
+          # Research helpers must not introduce the execution forms recognized
+          # below. This is deliberately scoped to research/; it is a syntactic
+          # guard, not a sandbox and cannot prove that arbitrary code is safe.
+          prohibited = frozenset({"eval", "exec", "__import__"})
+          dynamic_names = frozenset({"globals", "locals", "vars"})
+
+          def literal_string(node: ast.AST) -> str | None:
+              return node.value if isinstance(node, ast.Constant) and type(node.value) is str else None
+
+          def call_name(node: ast.AST) -> str | None:
+              return node.id if isinstance(node, ast.Name) else None
+
+          def is_builtins_reference(node: ast.AST, names: set[str]) -> bool:
+              return isinstance(node, ast.Name) and node.id in names
+
+          for path in sorted((root / "research").rglob("*.py")):
+              if "__pycache__" in path.parts:
+                  continue
+              try:
+                  tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+              except (OSError, UnicodeDecodeError, SyntaxError) as exc:
+                  failures.append(f"cannot parse {path.relative_to(root)}: {exc}")
+                  continue
+              builtin_modules = {"builtins", "__builtins__"}
+              prohibited_aliases: set[str] = set()
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Import):
+                      for imported in node.names:
+                          if imported.name == "builtins":
+                              builtin_modules.add(imported.asname or "builtins")
+                  elif isinstance(node, ast.ImportFrom) and node.module in {"builtins", "__builtins__"}:
+                      for imported in node.names:
+                          if imported.name in prohibited:
+                              prohibited_aliases.add(imported.asname or imported.name)
+              for node in ast.walk(tree):
+                  if isinstance(node, ast.Call):
+                      name = call_name(node.func)
+                      if name in prohibited or name in prohibited_aliases:
+                          failures.append(f"{path.relative_to(root)}:{node.lineno}: prohibited {name}()")
+                      if name == "getattr" and len(node.args) >= 2 and literal_string(node.args[1]) in prohibited:
+                          failures.append(f"{path.relative_to(root)}:{node.lineno}: dynamically reachable execution primitive")
+                      if isinstance(node.func, ast.Attribute) and is_builtins_reference(node.func.value, builtin_modules) and node.func.attr in prohibited:
+                          failures.append(f"{path.relative_to(root)}:{node.lineno}: prohibited builtins.{node.func.attr}()")
+                  elif isinstance(node, ast.Subscript):
+                      key = literal_string(node.slice)
+                      is_dynamic_namespace = (
+                          is_builtins_reference(node.value, builtin_modules)
+                          or (isinstance(node.value, ast.Call) and call_name(node.value.func) in dynamic_names)
+                      )
+                      if is_dynamic_namespace and key in prohibited:
+                          failures.append(f"{path.relative_to(root)}:{node.lineno}: dynamically reachable execution primitive")
+
+          # Source-control conflict markers in tracked source are always merge errors.
+          tracked = subprocess.run(
+              ["git", "ls-files", "-z", "--", "*.py", "*.sql", "*.go", "*.rs", "*.yml", "*.yaml", "*.json", "*.toml", "*.sh"],
+              check=True, stdout=subprocess.PIPE,
+          ).stdout.split(b"\0")
+          marker = re.compile(r"^(<<<<<<< |=======|>>>>>>> )", re.MULTILINE)
+          for raw_path in tracked:
+              if not raw_path:
+                  continue
+              path = root / raw_path.decode("utf-8", "surrogateescape")
+              try:
+                  text = path.read_text(encoding="utf-8")
+              except (OSError, UnicodeDecodeError) as exc:
+                  failures.append(f"cannot inspect tracked source {path.relative_to(root)}: {exc}")
+                  continue
+              if marker.search(text):
+                  failures.append(f"{path.relative_to(root)}: unresolved conflict marker")
+
+          # A hosted Actions checkout is expected to be clean, so scanning
+          # untracked files cannot establish that a repository contains no
+          # secrets. Instead, keep this workflow itself non-secret-bearing and
+          # pin only the actions it invokes. Other workflows may have legitimate
+          # secret-bearing deployment responsibilities outside this check's scope.
+          workflow = root / ".github" / "workflows" / "security-integrity.yml"
+          uses_line = re.compile(r"^\s*uses:\s*([^\s#]+)")
+          sha = re.compile(r"^[^@\s]+@[0-9a-f]{40}$")
+          try:
+              text = workflow.read_text(encoding="utf-8")
+          except (OSError, UnicodeDecodeError) as exc:
+              failures.append(f"cannot inspect {workflow.relative_to(root)}: {exc}")
+          else:
+              if re.search(r"\$\{\{\s*secrets\.", text, re.IGNORECASE):
+                  failures.append(f"{workflow.relative_to(root)}: this workflow must not reference secrets")
+              for number, line in enumerate(text.splitlines(), 1):
+                  match = uses_line.match(line)
+                  if match and not sha.fullmatch(match.group(1)):
+                      failures.append(f"{workflow.relative_to(root)}:{number}: action is not pinned to a full commit SHA")
+
+          if failures:
+              print("security/integrity check failed:", *failures, sep="\n- ", file=sys.stderr)
+              sys.exit(1)
+          print("security/integrity checks passed")
+          PY
