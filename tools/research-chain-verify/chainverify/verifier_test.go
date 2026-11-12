@@ -16,11 +16,17 @@ func golden(t *testing.T) []byte {
 	return b
 }
 
-func TestPythonGeneratedGoldenFixture(t *testing.T) {
-	path, err := filepath.Abs(filepath.Join("..", "testdata", "golden.jsonl"))
-	if err != nil {
+func secureFixturePath(t *testing.T, name string, data []byte) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), name)
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		t.Fatal(err)
 	}
+	return path
+}
+
+func TestPythonGeneratedGoldenFixture(t *testing.T) {
+	path := secureFixturePath(t, "golden.jsonl", golden(t))
 	report, err := Verify(path)
 	if err != nil {
 		t.Fatalf("Python-generated fixture rejected: %v", err)
@@ -80,10 +86,11 @@ func TestSecureFileRequirementsAndNoSymlink(t *testing.T) {
 }
 
 func TestPythonGeneratedUnicodeFixture(t *testing.T) {
-	path, err := filepath.Abs(filepath.Join("..", "testdata", "unicode.jsonl"))
+	data, err := os.ReadFile(filepath.Join("..", "testdata", "unicode.jsonl"))
 	if err != nil {
 		t.Fatal(err)
 	}
+	path := secureFixturePath(t, "unicode.jsonl", data)
 	report, err := Verify(path)
 	if err != nil {
 		t.Fatalf("Python-generated Unicode fixture rejected: %v", err)
