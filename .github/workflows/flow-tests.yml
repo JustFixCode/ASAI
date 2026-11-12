@@ -1,0 +1,140 @@
+name: ASAI flow tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  flow:
+    name: ${{ matrix.category }}/${{ matrix.flow }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 10
+      matrix:
+        include:
+          - category: safety-risk
+            flow: decimal-order-approval
+            harness: true
+          - category: safety-risk
+            flow: unsafe-input-rejection
+          - category: safety-risk
+            flow: time-and-mark-integrity
+          - category: safety-risk
+            flow: kill-switch-controls
+          - category: safety-risk
+            flow: recommendation-consensus
+          - category: safety-risk
+            flow: numeric-and-record-hardening
+          - category: safety-risk
+            flow: preflight-command-validation
+          - category: safety-risk
+            flow: preflight-evidence-time
+          - category: safety-risk
+            flow: preflight-account-position
+          - category: safety-risk
+            flow: preflight-fail-closed
+          - category: broker-reconciliation
+            flow: paper-endpoint-contract
+          - category: broker-reconciliation
+            flow: credential-and-error-safety
+          - category: broker-reconciliation
+            flow: submission-disabled
+          - category: broker-reconciliation
+            flow: read-only-order-lookup
+          - category: broker-reconciliation
+            flow: request-allowlist
+          - category: broker-reconciliation
+            flow: order-identity-bounds
+          - category: broker-reconciliation
+            flow: account-snapshot-exactness
+          - category: broker-reconciliation
+            flow: snapshot-malformation
+          - category: broker-reconciliation
+            flow: evidence-freshness-identity
+          - category: broker-reconciliation
+            flow: order-state-reconciliation
+          - category: persistence-idempotency
+            flow: manifest-schema-safety
+          - category: persistence-idempotency
+            flow: manifest-storage-boundary
+          - category: persistence-idempotency
+            flow: audit-history-normalization
+          - category: persistence-idempotency
+            flow: audit-file-integrity
+          - category: persistence-idempotency
+            flow: research-history-versioning
+          - category: persistence-idempotency
+            flow: research-history-filesystem
+          - category: persistence-idempotency
+            flow: research-history-atomicity
+          - category: persistence-idempotency
+            flow: request-idempotency-restart
+          - category: persistence-idempotency
+            flow: decision-identity-binding
+          - category: persistence-idempotency
+            flow: atomic-request-boundary
+          - category: research-backtest
+            flow: closed-bar-execution
+          - category: research-backtest
+            flow: cost-and-fee-accounting
+          - category: research-backtest
+            flow: interval-gap-validation
+          - category: research-backtest
+            flow: bar-input-hardening
+          - category: research-backtest
+            flow: config-strategy-immutability
+          - category: research-backtest
+            flow: cli-reproducible-run
+          - category: research-backtest
+            flow: cli-document-validation
+          - category: research-backtest
+            flow: cli-time-and-interval
+          - category: research-backtest
+            flow: cli-inert-filesystem
+          - category: research-backtest
+            flow: capture-provenance-safety
+          - category: interfaces-market-data
+            flow: fixed-iex-endpoint
+          - category: interfaces-market-data
+            flow: quote-clock-precision
+          - category: interfaces-market-data
+            flow: quote-freshness
+          - category: interfaces-market-data
+            flow: quote-json-validation
+          - category: interfaces-market-data
+            flow: quote-transport-bounds
+          - category: interfaces-market-data
+            flow: app-lifecycle-audit
+          - category: interfaces-market-data
+            flow: app-reconciliation-gates
+          - category: interfaces-market-data
+            flow: app-evidence-boundary
+          - category: interfaces-market-data
+            flow: app-no-submission
+          - category: interfaces-market-data
+            flow: pipeline-regressions
+    steps:
+      - name: Check out source
+        # actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Set up Python
+        # actions/setup-python@v5.1.0
+        uses: actions/setup-python@82c7e631bb3cdc910f68e0081d67478d79c6982d
+        with:
+          python-version: "3.12"
+          check-latest: false
+      - name: Validate matrix integrity
+        run: python -m ci.flow_matrix --validate
+      - name: Run flow harness self-tests
+        if: matrix.harness == true
+        run: python -m unittest tests/test_flow_matrix.py
+      - name: Run selected read-only flow
+        run: python -m ci.flow_matrix --flow "${{ matrix.category }}/${{ matrix.flow }}"
