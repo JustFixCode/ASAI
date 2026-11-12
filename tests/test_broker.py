@@ -12,7 +12,6 @@ from broker import (
     BrokerConfigurationError,
     BrokerProtocolError,
     BrokerRequestError,
-    BrokerTimeoutUnknownStatus,
     HttpResponse,
     OrderRequest,
 )
@@ -84,35 +83,29 @@ class AlpacaPaperClientTests(unittest.TestCase):
             self.client(fake).submit_order(order)
         self.assertEqual(fake.calls, [])
 
-    def test_submit_has_stable_client_id_and_only_one_attempt(self):
+    def test_submit_is_unavailable_after_forged_legacy_flag_mutation(self):
         order = OrderRequest(" aapl ", "2", "buy", type="limit", limit_price="100.25", request_key="approval-7")
         same_order = OrderRequest("AAPL", "2", "buy", type="limit", limit_price="100.25", request_key="approval-7")
         self.assertEqual(order.resolved_client_order_id(), same_order.resolved_client_order_id())
-        fake = FakeTransport(HttpResponse(201, ('{\"id\":\"broker-order-1\",\"client_order_id\":\"' + order.resolved_client_order_id() + '\",\"status\":\"accepted\"}').encode()))
-        result = self.client(fake, allow_paper_submit=True).submit_order(order)
-        self.assertEqual(result["status"], "accepted")
-        self.assertEqual(len(fake.calls), 1)
-        method, url, _, raw_body, _ = fake.calls[0]
-        self.assertEqual((method, url), ("POST", ALPACA_PAPER_URL + "/v2/orders"))
-        self.assertEqual(json.loads(raw_body.decode("utf-8"))["client_order_id"], order.resolved_client_order_id())
-
-    def test_submit_timeout_is_unknown_and_recovery_lookup_uses_same_id(self):
-        order = OrderRequest("MSFT", "1", "sell", request_key="approval-8")
-        fake = FakeTransport(TimeoutError("timed out"), HttpResponse(200, ('{\"id\":\"broker-order-2\",\"client_order_id\":\"' + order.resolved_client_order_id() + '\",\"status\":\"new\"}').encode()))
+        fake = FakeTransport()
         client = self.client(fake, allow_paper_submit=True)
-        with self.assertRaises(BrokerTimeoutUnknownStatus) as caught:
+        client._allow_paper_submit = True  # Forged legacy private flag must be inert.
+        with self.assertRaises(BrokerConfigurationError):
             client.submit_order(order)
-        self.assertEqual(caught.exception.client_order_id, order.resolved_client_order_id())
-        resolved = client.get_order_by_client_order_id(caught.exception.client_order_id)
-        self.assertEqual(resolved["id"], "broker-order-2")
-        self.assertEqual(len(fake.calls), 2)  # no automatic POST retry
-        self.assertEqual(fake.calls[1][1], ALPACA_PAPER_URL + "/v2/orders:by_client_order_id?client_order_id=" + order.resolved_client_order_id())
+        self.assertEqual(fake.calls, [])
 
-    def test_get_status_cancel_and_invalid_responses_fail_closed(self):
-        fake = FakeTransport(HttpResponse(200, b'{"id":"abc","client_order_id":"approved-abc","status":"accepted"}'), HttpResponse(204, b""))
+    def test_read_only_lookup_by_client_id_remains_available_for_unknown_outcomes(self):
+        order = OrderRequest("MSFT", "1", "sell", request_key="approval-8")
+        fake = FakeTransport(HttpResponse(200, ('{\"id\":\"broker-order-2\",\"client_order_id\":\"' + order.resolved_client_order_id() + '\",\"status\":\"new\"}').encode()))
+        resolved = self.client(fake, allow_paper_submit=True).get_order_by_client_order_id(order.resolved_client_order_id())
+        self.assertEqual(resolved["id"], "broker-order-2")
+        self.assertEqual(len(fake.calls), 1)
+        self.assertEqual(fake.calls[0][1], ALPACA_PAPER_URL + "/v2/orders:by_client_order_id?client_order_id=" + order.resolved_client_order_id())
+
+    def test_get_status_and_invalid_responses_fail_closed(self):
+        fake = FakeTransport(HttpResponse(200, b'{"id":"abc","client_order_id":"approved-abc","status":"accepted"}'))
         client = self.client(fake)
         self.assertEqual(client.get_order("abc")["id"], "abc")
-        self.assertIsNone(client.cancel_order("abc"))
         with self.assertRaises(BrokerProtocolError):
             self.client(FakeTransport(HttpResponse(200, b"not-json"))).get_account()
         with self.assertRaises(BrokerRequestError):
@@ -151,12 +144,45 @@ class AlpacaPaperClientTests(unittest.TestCase):
         )
         for body in cases:
             with self.subTest(body=body):
-                with self.assertRaises(BrokerProtocolError):
-                    self.client(FakeTransport(HttpResponse(201, body)), allow_paper_submit=True).submit_order(order)
+                fake = FakeTransport(HttpResponse(201, body))
+                with self.assertRaises(BrokerConfigurationError):
+                    self.client(fake, allow_paper_submit=True).submit_order(order)
+                self.assertEqual(fake.calls, [])
         with self.assertRaises(BrokerProtocolError):
             self.client(FakeTransport(HttpResponse(200, b'{"id":"other","client_order_id":"valid-id","status":"new"}'))).get_order("expected")
-        with self.assertRaises(BrokerProtocolError):
-            self.client(FakeTransport(HttpResponse(204, b"unexpected"))).cancel_order("expected")
+
+    def test_cancel_is_unavailable_without_delete_transport(self):
+        fake = FakeTransport()
+        with self.assertRaises(BrokerConfigurationError):
+            self.client(fake).cancel_order("expected")
+        self.assertEqual(fake.calls, [])
+
+    def test_request_helper_rejects_direct_post_and_delete_before_transport(self):
+        for method, path, payload in (
+            ("POST", "/v2/orders", {"symbol": "AAPL"}),
+            ("DELETE", "/v2/orders/broker-order-1", None),
+        ):
+            with self.subTest(method=method):
+                fake = FakeTransport()
+                with self.assertRaises(BrokerConfigurationError):
+                    self.client(fake)._request_json(
+                        method, path, expected={200}, payload=payload,
+                    )
+                self.assertEqual(fake.calls, [])
+
+    def test_request_helper_rejects_payload_and_non_allowlisted_get_before_transport(self):
+        for path, payload in (
+            ("/v2/account", {}),
+            ("/v2/orders", None),
+            ("/v2/orders:by_client_order_id?client_order_id=valid-id&extra=1", None),
+        ):
+            with self.subTest(path=path, payload=payload):
+                fake = FakeTransport()
+                with self.assertRaises(BrokerConfigurationError):
+                    self.client(fake)._request_json(
+                        "GET", path, expected={200}, payload=payload,
+                    )
+                self.assertEqual(fake.calls, [])
 
     def test_idempotency_key_cannot_be_caller_overridden_or_unbounded(self):
         order = OrderRequest("AAPL", "1", "buy", request_key="approval-10")
