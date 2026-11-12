@@ -1,0 +1,62 @@
+name: Database role security
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# The workflow reads the checked-out source only. The disposable PostgreSQL
+# service uses trust authentication and this workflow consumes no secrets.
+permissions:
+  contents: read
+
+jobs:
+  role-security:
+    name: PostgreSQL least-privilege roles
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGDATABASE: postgres
+
+    steps:
+      - name: Check out source
+        # actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Create constrained roles before migrations
+        run: |
+          psql -X -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE ROLE asai_poster NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          CREATE ROLE asai_safety_operator NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          CREATE ROLE asai_reader NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          CREATE ROLE asai_order_operator NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          CREATE ROLE asai_noaccess NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
+          SQL
+
+      - name: Apply database migrations
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -f db/001_foundation.sql
+          psql -X -v ON_ERROR_STOP=1 -f db/002_paper_orders.sql
+
+      - name: Run least-privilege role checks
+        run: psql -X -v ON_ERROR_STOP=1 -f db/test_role_privileges.sql
