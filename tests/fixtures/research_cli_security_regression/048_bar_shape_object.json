@@ -1,0 +1,26 @@
+{
+  "case": "object",
+  "category": "bar_shape",
+  "note": "Exact bar shape and canonical field types.",
+  "expected": {
+    "outcome": "error"
+  },
+  "input": {
+    "schema_version": 1,
+    "as_of": "2026-01-02T14:35:00+00:00",
+    "bars": {},
+    "strategy": {
+      "type": "sma_crossover",
+      "short_window": 2,
+      "long_window": 3
+    },
+    "config": {
+      "initial_cash": "1000",
+      "order_quantity": "1",
+      "max_position": "1",
+      "max_gap_seconds": 60,
+      "fee_bps": "0",
+      "slippage_bps": "0"
+    }
+  }
+}
