@@ -75,7 +75,7 @@ jobs:
           cache: false
 
       - name: Check Rust formatting
-        run: cargo fmt --check
+        run: rustfmt --check src/main.rs src/validator.rs
 
       - name: Run Rust tests
         run: cargo test --locked
