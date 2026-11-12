@@ -1,0 +1,74 @@
+{
+  "case": "captured_z",
+  "category": "provenance",
+  "note": "Untrusted document provenance remains bounded and inert.",
+  "expected": {
+    "outcome": "error"
+  },
+  "input": {
+    "schema_version": 1,
+    "as_of": "2026-01-02T14:35:00+00:00",
+    "bars": [
+      {
+        "open_timestamp": "2026-01-02T14:30:00+00:00",
+        "close_timestamp": "2026-01-02T14:30:59+00:00",
+        "symbol": "ASAI",
+        "open": "10",
+        "close": "10"
+      },
+      {
+        "open_timestamp": "2026-01-02T14:31:00+00:00",
+        "close_timestamp": "2026-01-02T14:31:59+00:00",
+        "symbol": "ASAI",
+        "open": "9",
+        "close": "9"
+      },
+      {
+        "open_timestamp": "2026-01-02T14:32:00+00:00",
+        "close_timestamp": "2026-01-02T14:32:59+00:00",
+        "symbol": "ASAI",
+        "open": "8",
+        "close": "8"
+      },
+      {
+        "open_timestamp": "2026-01-02T14:33:00+00:00",
+        "close_timestamp": "2026-01-02T14:33:59+00:00",
+        "symbol": "ASAI",
+        "open": "12",
+        "close": "12"
+      },
+      {
+        "open_timestamp": "2026-01-02T14:34:00+00:00",
+        "close_timestamp": "2026-01-02T14:34:59+00:00",
+        "symbol": "ASAI",
+        "open": "13",
+        "close": "3"
+      }
+    ],
+    "strategy": {
+      "type": "sma_crossover",
+      "short_window": 2,
+      "long_window": 3
+    },
+    "config": {
+      "initial_cash": "1000",
+      "order_quantity": "1",
+      "max_position": "1",
+      "max_gap_seconds": 60,
+      "fee_bps": "0",
+      "slippage_bps": "0"
+    },
+    "research_document": {
+      "schema_version": 1,
+      "provenance": {
+        "source_id": "analyst-42",
+        "source_kind": "user_supplied_research",
+        "source_label": "User note",
+        "source_reference": "offline-note-42",
+        "captured_at": "2026-01-02T14:00:00Z"
+      },
+      "title": "Untrusted note",
+      "text": "Quoted offline evidence only."
+    }
+  }
+}
