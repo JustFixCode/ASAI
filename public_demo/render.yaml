@@ -1,0 +1,27 @@
+# Use this as a custom Blueprint path, or configure equivalent headers in Render.
+# Merely publishing the directory as a static site does not apply these headers.
+services:
+  - type: web
+    runtime: static
+    name: asai-public-demo
+    buildCommand: "rm -rf public_demo/dist && mkdir -p public_demo/dist && cp public_demo/index.html public_demo/styles.css public_demo/app.js public_demo/dist/"
+    staticPublishPath: ./public_demo/dist
+    headers:
+      - path: /*
+        name: Content-Security-Policy
+        value: "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'none'; connect-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: no-referrer
+      - path: /*
+        name: Cache-Control
+        value: no-store
+      - path: /*
+        name: Permissions-Policy
+        value: "camera=(), microphone=(), geolocation=()"
