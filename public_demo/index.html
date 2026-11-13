@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'none'; connect-src 'none'; font-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>ASAI | Trading simulation</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="safety"><strong>SIMULATION ONLY</strong><span>Fixture prices · No Alpaca connection · No real trades</span></div>
+  <div class="shell">
+    <header class="topbar"><div class="brand"><span class="brandmark" aria-hidden="true">A</span><span>ASAI <small> / LAB</small></span></div><span class="badge"><span class="dot" aria-hidden="true"></span> Browser demo</span></header>
+    <main>
+      <section class="intro"><p class="eyebrow">A SAFE SPACE TO EXPLORE</p><h1>Practice the trade.<br><span>Keep it simulated.</span></h1><p>Explore limit orders with a fictional AAPL quote and a virtual portfolio. Nothing is sent to a broker.</p></section>
+      <section class="dashboard" aria-label="Simulation dashboard">
+        <div class="left">
+          <article class="card quote"><div class="card-head"><div><p class="eyebrow">FIXTURE QUOTE</p><h2>Apple <span class="ticker">AAPL</span></h2></div><span class="tag">STATIC · NOT LIVE</span></div><div class="quote-grid"><div><span class="label">Bid</span><strong>$190.00</strong></div><div><span class="label">Ask</span><strong>$190.02</strong></div><div><span class="label">Spread</span><strong>$0.02</strong></div></div><p class="fine">Illustrative prices only. They do not update or represent the market.</p></article>
+          <article class="card portfolio"><div class="card-head"><div><p class="eyebrow">YOUR SIMULATED ACCOUNT</p><h2>Portfolio overview</h2></div><span class="tag light">USD</span></div><div class="portfolio-grid"><div><span class="label">Total value <span class="hint">at bid</span></span><strong id="total">$10,000.00</strong></div><div><span class="label">Available cash</span><strong id="cash">$10,000.00</strong></div><div><span class="label">AAPL shares</span><strong id="shares">0</strong></div></div><p class="fine">Starts with $10,000 virtual cash. No fees are modeled.</p></article>
+          <article class="card activity"><div class="card-head"><div><p class="eyebrow">THIS PAGE ONLY</p><h2>Filled orders</h2></div><span class="tag light" id="order-count">0 FILLS</span></div><p id="empty" class="empty">No simulated fills yet. Your practice orders will appear here.</p><div class="table-wrap"><table id="orders" hidden><caption class="sr-only">Simulated filled orders, newest first</caption><thead><tr><th scope="col">Order</th><th scope="col">Side</th><th scope="col">Shares</th><th scope="col">Limit</th><th scope="col">Fill</th></tr></thead><tbody id="order-rows"></tbody></table></div></article>
+        </div>
+        <aside class="card ticket"><p class="eyebrow">SIMULATED ORDER</p><h2>Order ticket</h2><p class="ticket-copy">Limit orders · AAPL only</p>
+          <p class="simulation-notice"><strong>Local browser simulation</strong> — not an Alpaca paper account. Resets on refresh; no orders are sent to a broker.</p>
+          <div class="ticket-context" aria-label="Fixture quote and simulated cash"><div><span>Bid</span><strong>$190.00</strong></div><div><span>Ask</span><strong>$190.02</strong></div><div><span>Available cash</span><strong id="ticket-cash">$10,000.00</strong></div></div>
+          <form id="order-form" novalidate>
+            <label for="side">Side</label><select id="side" name="side" aria-describedby="side-error"><option value="BUY">Buy</option><option value="SELL">Sell</option></select><p class="field-error" id="side-error"></p>
+            <label for="quantity">Quantity <span>whole shares</span></label><input id="quantity" name="quantity" type="text" inputmode="numeric" value="1" autocomplete="off" aria-describedby="quantity-help quantity-error"><p class="field-help" id="quantity-help">1 to 1,000,000 shares.</p><p class="field-error" id="quantity-error"></p>
+            <label for="limit">Limit price <span>USD per share</span></label><div class="input-price"><span aria-hidden="true">$</span><input id="limit" name="limit" type="text" inputmode="decimal" value="190.02" autocomplete="off" aria-describedby="limit-help limit-error"></div><p class="field-help" id="limit-help">Up to 8 decimal places; max $1,000,000.</p><p class="field-error" id="limit-error"></p>
+            <button type="submit">Place simulated order <span aria-hidden="true">↗</span></button><p id="message" class="message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="ticket-note"><strong>How fills work</strong><p>A buy fills at the ask if your limit is at or above it. A sell fills at the bid if your limit is at or below it. Otherwise the order is rejected, not queued. Filled orders cannot be canceled.</p></div>
+        </aside>
+      </section>
+      <div class="footnote"><strong>Private to this page session.</strong> Each tab has its own in-memory state; refresh or close the page to reset it. No storage, account connection, or real-money trading. Maximum 1,000 fills per page.</div>
+    </main><footer><span>ASAI <span class="footer-accent">/</span> LEARNING LAB</span><span>Built for exploration, not execution.</span></footer>
+  </div>
+</body>
+</html>
